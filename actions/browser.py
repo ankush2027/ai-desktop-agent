@@ -1,6 +1,5 @@
 import webbrowser
 
-
 def open_site(site_name: str):
     """
     Opens commonly used websites based on input.
@@ -21,6 +20,4 @@ def open_site(site_name: str):
         print(f"Opening {site_name}...")
     else:
         print("Site not supported.")
-
-
 

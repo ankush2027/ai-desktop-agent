@@ -9,7 +9,7 @@ def main():
         return
 
     parts = command.split()
-
+    
     if parts[0] == "open":
         if len(parts) > 1:
             open_site(parts[1])
