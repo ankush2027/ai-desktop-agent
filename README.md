@@ -1,2 +1,2 @@
 # ai-desktop-agent
-Building my won personal agent 
+Building my own personal agent 
