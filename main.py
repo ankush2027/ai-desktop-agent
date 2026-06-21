@@ -1,5 +1,5 @@
 from parser import parse_command
-from actions.browser import open_site
+from executor import execute
 
 
 def main():
@@ -7,11 +7,11 @@ def main():
 
     parsed = parse_command(command)
 
-    if parsed is not None:
-        if parsed["action"] == "open":
-            open_site(parsed["target"])
+    if parsed:
+        execute(parsed)
     else:
         print("Invalid command")
+
 
 if __name__ == "__main__":
     main()
