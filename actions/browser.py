@@ -10,7 +10,10 @@ def open_site(site_name: str):
 
     sites = {
         "youtube": "https://www.youtube.com",
-        "google": "https://www.google.com"
+        "yt": "https://www.youtube.com",
+        "google": "https://www.google.com",
+        "gmail":"https://mail.google.com",
+        "mail":"https://mail.google.com"
     }
 
     site_name = site_name.lower()
