@@ -1,8 +1,9 @@
 from actions.browser import open_site
-
+from actions.search import search_google
 
 ACTION_MAP = {
-    "open": open_site
+    "open": open_site,
+    "search": search_google
 }
 
 

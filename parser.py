@@ -6,11 +6,16 @@ def parse_command(command):
 
     parts = command.split()
 
-    if parts[0] == "open":
-        if len(parts) == 2:
-            return {
-                "action": "open",
-                "target": parts[1]
-            }
+    if len(parts) < 2:
+        return None
+
+    action = parts[0]
+    target = parts[1]
+
+    if action in ["open", "search"]:
+        return {
+            "action": action,
+            "target": target
+        }
 
     return None
