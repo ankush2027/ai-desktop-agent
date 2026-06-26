@@ -10,7 +10,7 @@ def parse_command(command):
         return None
 
     action = parts[0]
-    target = parts[1]
+    target = " ".join(parts[1:])
 
     if action in ["open", "search"]:
         return {
