@@ -15,7 +15,8 @@ def parse_command(command):
     if action in ["open", "search"]:
         return {
             "action": action,
-            "target": target
+            "target": target,
+            "params": {}
         }
 
     return None
