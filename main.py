@@ -1,7 +1,6 @@
 from parser import parse_command
 from executor import execute
 
-
 def main():
     command = input("Enter command: ")
 
