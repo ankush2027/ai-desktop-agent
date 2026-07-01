@@ -16,4 +16,4 @@ def execute(command):
     if handler:
         handler(target)
     else:
-        print("Unsupported action")
+        print(f"Unsupported action : {action}")
