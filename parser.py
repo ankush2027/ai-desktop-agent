@@ -1,3 +1,13 @@
+ACTION_ALIASES = {
+    "launch": "open",
+    "start": "open",
+    "open": "open",
+    "find": "search",
+    "google": "search",
+    "search": "search"
+    }
+
+
 def parse_command(command):
     command = command.lower().strip()
 
@@ -9,10 +19,11 @@ def parse_command(command):
     if len(parts) < 2:
         return None
 
-    action = parts[0]
+    action = ACTION_ALIASES.get(parts[0])
     target = " ".join(parts[1:])
-
-    if action in ["open", "search"]:
+    
+    
+    if action:
         return {
             "action": action,
             "target": target,
