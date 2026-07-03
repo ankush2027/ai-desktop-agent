@@ -6,8 +6,9 @@ def main():
 
     parsed = parse_command(command)
 
-    if parsed:
-        execute(parsed)
+    if parsed:  
+        for cmd in parsed:
+            execute(cmd)
     else:
         print("Invalid command")
 
