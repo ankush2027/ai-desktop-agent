@@ -5,7 +5,7 @@ ACTION_ALIASES = {
     "find": "search",
     "google": "search",
     "search": "search"
-    }
+}
 
 
 def parse_command(command):
@@ -14,20 +14,26 @@ def parse_command(command):
     if not command:
         return None
 
-    parts = command.split()
+    commands = []
 
-    if len(parts) < 2:
-        return None
+    parts = command.split(" and ")
 
-    action = ACTION_ALIASES.get(parts[0])
-    target = " ".join(parts[1:])
-    
-    
-    if action:
-        return {
+    for part in parts:
+        words = part.split()
+
+        if len(words) < 2:
+            return None
+
+        action = ACTION_ALIASES.get(words[0])
+        target = " ".join(words[1:])
+
+        if not action:
+            return None
+
+        commands.append({
             "action": action,
             "target": target,
             "params": {}
-        }
+        })
 
-    return None
+    return commands
