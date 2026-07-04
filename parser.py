@@ -7,7 +7,6 @@ ACTION_ALIASES = {
     "search": "search"
 }
 
-
 def parse_command(command):
     command = command.lower().strip()
 
