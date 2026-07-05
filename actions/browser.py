@@ -23,4 +23,4 @@ def open_site(site_name: str):
         print(f"Opening {site_name}...")
     else:
         print("Site not supported.")
-
+        
