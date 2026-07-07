@@ -1,7 +1,15 @@
-from actions.config import APPS
+import subprocess
+from config import APPS
 
-def open_app(app_name:str):
+
+def open_app(app_name: str):
+    app_name = app_name.lower()
+
     if app_name in APPS:
-        print(f"Opening {app_name}...")
+        real_app_name = APPS[app_name]
+
+        subprocess.run(["open", "-a", real_app_name])
+
+        print(f"Opening {real_app_name}...")
     else:
-        print("App not supported.")
+        print(f"App '{app_name}' not supported.")

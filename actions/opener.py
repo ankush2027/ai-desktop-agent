@@ -1,4 +1,4 @@
-from actions.config import SITES,APPS
+from config import SITES,APPS
 from actions.browser import open_site
 from actions.apps import open_app
 

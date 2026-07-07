@@ -1,4 +1,3 @@
-
 SITES={
      "youtube": "https://www.youtube.com",
         "yt": "https://www.youtube.com",
@@ -9,7 +8,7 @@ SITES={
 
 
 APPS = {
-    "calculator": "...",
-    "vscode": "...",
-    "whatsapp": "..."
+    "calculator": "Calculator.app",
+    "vscode": "VS CODE.app",
+    "whatsapp": "WhatsApp.app"
 }

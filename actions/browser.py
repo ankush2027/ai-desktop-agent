@@ -1,5 +1,5 @@
 import webbrowser
-from actions.config import SITES
+from config import SITES
 
 def open_site(site_name: str):
     """
