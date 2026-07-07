@@ -1,10 +1,9 @@
-from actions.browser import open_site
-from actions.search import search_google
 from logger import log_action
-
+from actions.opener import open_target
+from actions.search import search_google
 
 ACTION_MAP = {
-    "open": open_site,
+    "open": open_target,
     "search": search_google
 }
 
