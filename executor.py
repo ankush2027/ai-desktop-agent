@@ -1,3 +1,4 @@
+from actions.help import show_help
 from actions.list_items import list_items
 from logger import log_action
 from actions.opener import open_target
@@ -6,8 +7,10 @@ from actions.search import search_google
 ACTION_MAP = {
     "open": open_target,
     "search": search_google,
-    "list":list_items
+    "list":list_items,
+    "help":show_help
 }
+
 def execute(command):
     action = command.get("action")
     target = command.get("target")

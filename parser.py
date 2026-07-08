@@ -5,8 +5,12 @@ ACTION_ALIASES = {
     "find": "search",
     "google": "search",
     "search": "search",
-    "list":"list"
+    "list": "list",
+    "help": "help"
 }
+
+SPECIAL_COMMANDS = {"help", "exit"}
+
 
 def parse_command(command):
     command = command.lower().strip()
@@ -20,6 +24,14 @@ def parse_command(command):
 
     for part in parts:
         words = part.split()
+
+        if words[0] in SPECIAL_COMMANDS:
+            commands.append({
+                "action": words[0],
+                "target": "",
+                "params": {}
+            })
+            continue
 
         if len(words) < 2:
             return None
