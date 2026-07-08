@@ -4,7 +4,7 @@ ACTION_ALIASES = {
     "open": "open",
     "find": "search",
     "google": "search",
-    "search": "search"
+    "search": "search",
 }
 
 def parse_command(command):
