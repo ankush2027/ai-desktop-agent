@@ -2,10 +2,12 @@ from config import SITES, APPS
 
 def list_items(target):
     if target == "sites":
+        print("Available sites:")
         for site in SITES:
-            print(site)
-        return None
-    return
-    for app in APPS:
-        print(app)
-    return None
+            print(f"- {site}")
+    elif target == "apps":
+        print("Available apps:")
+        for app in APPS:
+            print(f"- {app}")
+    else:
+        print(f"Unsupported target: {target}")

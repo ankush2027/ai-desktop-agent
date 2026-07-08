@@ -8,7 +8,6 @@ ACTION_MAP = {
     "search": search_google,
     "list":list_items
 }
-
 def execute(command):
     action = command.get("action")
     target = command.get("target")
