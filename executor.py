@@ -1,5 +1,5 @@
+from actions.create import create
 from actions.exit import exit_program
-from actions.files import create_file
 from actions.help import show_help
 from actions.list_items import list_items
 from logger import log_action
@@ -9,20 +9,21 @@ from actions.search import search_google
 ACTION_MAP = {
     "open": open_target,
     "search": search_google,
-    "list":list_items,
-    "help":show_help,
+    "list": list_items,
+    "help": show_help,
     "exit": exit_program,
-    "create": create_file
+    "create": create,
 }
 
 def execute(command):
     action = command.get("action")
     target = command.get("target")
+    params = command.get("params", {})
 
     handler = ACTION_MAP.get(action)
 
     if handler:
-        log_action(action,target)
-        handler(target)
+        log_action(action, target)
+        handler(target, params)
     else:
-        print(f"Unsupported action : {action}")
+        print(f"Unsupported action: {action}")

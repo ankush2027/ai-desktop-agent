@@ -51,17 +51,30 @@ def parse_command(command):
 
         if len(words) < 2:
             return None
-
+        
         action = ACTION_ALIASES.get(words[0])
-        target = " ".join(words[1:])
 
         if not action:
             return None
 
+        params = {}
+        target = " ".join(words[1:])
+
+        if action == "create":
+            if len(words) < 3:
+                return None
+
+            item_type = words[1]
+
+            if item_type not in ["file", "folder"]:
+                return None
+
+            target = " ".join(words[2:])
+            params["type"] = item_type
+
         commands.append({
             "action": action,
             "target": target,
-            "params": {}
+            "params": params
         })
-
     return commands

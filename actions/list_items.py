@@ -1,6 +1,6 @@
 from config import SITES, APPS
 
-def list_items(target):
+def list_items(target="",params=None):
     if target == "sites":
         print("Available sites:")
         for site in SITES:

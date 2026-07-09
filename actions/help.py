@@ -1,4 +1,4 @@
-def show_help(target):
+def show_help(target="",params=None):
     print("""
 Available Commands
 ------------------
