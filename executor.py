@@ -1,4 +1,5 @@
 from actions.exit import exit_program
+from actions.files import create_file
 from actions.help import show_help
 from actions.list_items import list_items
 from logger import log_action
@@ -10,7 +11,8 @@ ACTION_MAP = {
     "search": search_google,
     "list":list_items,
     "help":show_help,
-    "exit": exit_program
+    "exit": exit_program,
+    "create": create_file
 }
 
 def execute(command):

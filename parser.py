@@ -8,7 +8,10 @@ ACTION_ALIASES = {
     "google": "search",
     "search": "search",
     "list": "list",
-    "help": "help"
+    "help": "help",
+    "make":"create",
+    "create":"create",
+    "new":"create"
 }
 
 SPECIAL_COMMANDS = {"help", "exit"}
