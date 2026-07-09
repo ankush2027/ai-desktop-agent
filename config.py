@@ -29,3 +29,9 @@ FILLER_WORDS = {
     "a",
     "an"
 }
+
+FOLDERS = {
+    "desktop": "~/Desktop",
+    "downloads": "~/Downloads",
+    "documents": "~/Documents"
+}
