@@ -11,4 +11,4 @@ def open_target(target):
     elif target in FOLDERS:
         open_folder(target)
     else:
-        print(f"'{target}' is not a supported website or application.")
+        print(f"'{target}' is not a supported website , folder or application.")
