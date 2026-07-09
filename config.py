@@ -17,3 +17,15 @@ SITE_ALIASES={
     "mail":"gmail",
     "gh":"github"
 }
+
+FILLER_WORDS = {
+    "please",
+    "can",
+    "could",
+    "would",
+    "you",
+    "me",
+    "the",
+    "a",
+    "an"
+}

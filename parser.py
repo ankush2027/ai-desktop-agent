@@ -1,3 +1,5 @@
+from config import FILLER_WORDS
+
 ACTION_ALIASES = {
     "launch": "open",
     "start": "open",
@@ -11,12 +13,23 @@ ACTION_ALIASES = {
 
 SPECIAL_COMMANDS = {"help", "exit"}
 
-
 def parse_command(command):
     command = command.lower().strip()
+    
+
+    words = command.split()
+
+    filtered_words = []
+    
+    for word in words:
+        if word not in FILLER_WORDS:
+            filtered_words.append(word)
+
+    command = " ".join(filtered_words)
 
     if not command:
         return None
+    
 
     commands = []
 
