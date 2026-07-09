@@ -1,3 +1,4 @@
+from actions.exit import exit_program
 from actions.help import show_help
 from actions.list_items import list_items
 from logger import log_action
@@ -8,7 +9,8 @@ ACTION_MAP = {
     "open": open_target,
     "search": search_google,
     "list":list_items,
-    "help":show_help
+    "help":show_help,
+    "exit": exit_program
 }
 
 def execute(command):
