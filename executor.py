@@ -1,3 +1,4 @@
+from actions.delete import delete
 from actions.create import create
 from actions.exit import exit_program
 from actions.help import show_help
@@ -13,6 +14,7 @@ ACTION_MAP = {
     "help": show_help,
     "exit": exit_program,
     "create": create,
+    "delete":delete
 }
 
 def execute(command):

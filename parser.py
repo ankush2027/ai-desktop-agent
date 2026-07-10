@@ -11,7 +11,10 @@ ACTION_ALIASES = {
     "help": "help",
     "make":"create",
     "create":"create",
-    "new":"create"
+    "new":"create",
+    "delete": "delete",
+    "remove": "delete",
+    "del": "delete"
 }
 
 SPECIAL_COMMANDS = {"help", "exit"}
@@ -60,7 +63,7 @@ def parse_command(command):
         params = {}
         target = " ".join(words[1:])
 
-        if action == "create":
+        if action in ["create", "delete"]:
             if len(words) < 3:
                 return None
 
