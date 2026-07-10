@@ -14,7 +14,9 @@ ACTION_ALIASES = {
     "new":"create",
     "delete": "delete",
     "remove": "delete",
-    "del": "delete"
+    "del": "delete",
+    "rename": "rename",
+    "change": "rename"
 }
 
 SPECIAL_COMMANDS = {"help", "exit"}
@@ -74,6 +76,20 @@ def parse_command(command):
 
             target = " ".join(words[2:])
             params["type"] = item_type
+
+        elif action == "rename":
+            if len(words) != 4:
+                return None
+
+            item_type = words[1]
+
+            if item_type not in ["file", "folder"]:
+                return None
+
+            target = words[2]
+            params["type"] = item_type
+            params["new_name"] = words[3]
+
 
         commands.append({
             "action": action,

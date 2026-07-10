@@ -27,7 +27,8 @@ FILLER_WORDS = {
     "me",
     "the",
     "a",
-    "an"
+    "an",
+    "to"
 }
 
 FOLDERS = {
