@@ -17,7 +17,8 @@ ACTION_ALIASES = {
     "del": "delete",
     "rename": "rename",
     "change": "rename",
-    "copy":"copy"
+    "copy":"copy",
+    "move":"move"
 }
 
 SPECIAL_COMMANDS = {"help", "exit"}
@@ -78,7 +79,7 @@ def parse_command(command):
             target = " ".join(words[2:])
             params["type"] = item_type
 
-        elif action in ["rename", "copy"]:
+        elif action in ["rename", "copy" , "move"]:
             if len(words) != 4:
                 return None
 
