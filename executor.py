@@ -1,4 +1,5 @@
 from actions.delete import delete
+from actions.copy import copy
 from actions.create import create
 from actions.rename import rename
 from actions.exit import exit_program
@@ -16,7 +17,8 @@ ACTION_MAP = {
     "exit": exit_program,
     "create": create,
     "delete":delete,
-    "rename":rename
+    "rename":rename,
+    "copy":copy
 }
 
 def execute(command):
