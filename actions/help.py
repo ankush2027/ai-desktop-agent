@@ -1,27 +1,37 @@
-def show_help(target="",params=None):
+def show_help(target="", params=None):
     print("""
-Available Commands
-------------------
-open <website/app>
-search <query>
-list sites
-list apps
-help
+================ AI Desktop Agent ================
 
-Aliases
--------
-launch -> open
-start  -> open
-find   -> search
-google -> search
+OPEN
+  open yt
+  open chrome
+  open desktop
+  open actions/move.py
 
-Examples
---------
-open youtube
-launch gmail
-search python tutorial
-find docker compose
-list sites
-list apps
-help
+SEARCH
+  search python decorators
+
+CREATE
+  create file notes.txt
+  create folder Projects
+
+DELETE
+  delete file notes.txt
+  delete folder Projects
+
+RENAME
+  rename file old.txt new.txt
+  rename folder OldFolder NewFolder
+
+COPY
+  copy file notes.txt backup.txt
+
+MOVE
+  move file notes.txt Documents/notes.txt
+
+OTHER
+  help
+  exit
+
+==================================================
 """)
