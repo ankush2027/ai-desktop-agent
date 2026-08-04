@@ -5,7 +5,6 @@ SPECIAL_COMMANDS = {"help", "exit"}
 def parse_command(command):
     command = command.lower().strip()
     
-
     words = command.split()
 
     filtered_words = []
@@ -58,7 +57,7 @@ def parse_command(command):
             target = " ".join(words[2:])
             params["type"] = item_type
 
-        elif action in ["rename", "copy" , "move"]:
+        elif action == "rename":
             if len(words) != 4:
                 return None
 
@@ -71,6 +70,18 @@ def parse_command(command):
             params["type"] = item_type
             params["new_name"] = words[3]
 
+        elif action in ["copy", "move"]:
+            if len(words) != 4:
+                return None
+
+            item_type = words[1]
+
+            if item_type not in ["file", "folder"]:
+                return None
+
+            target = words[2]
+            params["type"] = item_type
+            params["destination"] = words[3]
 
         commands.append({
             "action": action,
