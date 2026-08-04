@@ -36,3 +36,24 @@ FOLDERS = {
     "downloads": "~/Downloads",
     "documents": "~/Documents"
 }
+
+ACTION_ALIASES = {
+    "launch": "open",
+    "start": "open",
+    "open": "open",
+    "find": "search",
+    "google": "search",
+    "search": "search",
+    "list": "list",
+    "help": "help",
+    "make":"create",
+    "create":"create",
+    "new":"create",
+    "delete": "delete",
+    "remove": "delete",
+    "del": "delete",
+    "rename": "rename",
+    "change": "rename",
+    "copy":"copy",
+    "move":"move"
+}
