@@ -1,6 +1,7 @@
 from config import FILLER_WORDS , ACTION_ALIASES
 
 SPECIAL_COMMANDS = {"help", "exit"}
+FILE_ACTIONS = {"create", "delete", "rename", "copy", "move"}
 
 def parse_command(command):
     command = command.lower().strip()
@@ -36,16 +37,16 @@ def parse_command(command):
 
         if len(words) < 2:
             return None
-        
+
         action = ACTION_ALIASES.get(words[0])
 
-        if not action:
+        if action is None:
             return None
 
         params = {}
         target = " ".join(words[1:])
 
-        if action in ["create", "delete"]:
+        if action in FILE_ACTIONS:
             if len(words) < 3:
                 return None
 
@@ -54,33 +55,23 @@ def parse_command(command):
             if item_type not in ["file", "folder"]:
                 return None
 
-            target = " ".join(words[2:])
             params["type"] = item_type
+
+        if action in ["create", "delete"]:
+            target = " ".join(words[2:])
 
         elif action == "rename":
             if len(words) != 4:
                 return None
 
-            item_type = words[1]
-
-            if item_type not in ["file", "folder"]:
-                return None
-
             target = words[2]
-            params["type"] = item_type
             params["new_name"] = words[3]
 
         elif action in ["copy", "move"]:
             if len(words) != 4:
                 return None
 
-            item_type = words[1]
-
-            if item_type not in ["file", "folder"]:
-                return None
-
             target = words[2]
-            params["type"] = item_type
             params["destination"] = words[3]
 
         commands.append({
