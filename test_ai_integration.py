@@ -1,4 +1,5 @@
 from ai.orchestrator import process_natural_language_command
+from main import route_command
 from parser import parse_command
 
 
@@ -13,6 +14,20 @@ class FakeBrain:
 class FakeContextEngine:
     def build_context(self, **kwargs):
         return type("FakeContext", (), {"to_dict": lambda self: {"summary": "fake"}})()
+
+
+def test_route_command_distinguishes_v1_from_ai_paths():
+    route, parsed = route_command("open file notes.txt")
+    assert route == "v1"
+    assert parsed == [{"action": "open", "target": "file notes.txt", "params": {}}]
+
+    route, parsed = route_command("open Chrome and search Python FastAPI")
+    assert route == "ai"
+    assert parsed is None
+
+    route, parsed = route_command("create file notes.txt and delete file old.txt")
+    assert route == "v1"
+    assert parsed is not None
 
 
 def test_ai_plan_generation_is_passed_to_execution():
@@ -90,6 +105,7 @@ def test_existing_v1_execution_still_works():
 
 
 if __name__ == "__main__":
+    test_route_command_distinguishes_v1_from_ai_paths()
     test_ai_plan_generation_is_passed_to_execution()
     test_multiple_actions_are_dispatched_in_order()
     test_malformed_ai_plan_is_rejected_safely()
