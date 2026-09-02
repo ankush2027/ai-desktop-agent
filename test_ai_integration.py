@@ -1,3 +1,6 @@
+import io
+from contextlib import redirect_stdout
+
 from ai.orchestrator import process_natural_language_command
 from main import route_command
 from parser import parse_command
@@ -52,6 +55,34 @@ def test_ai_plan_generation_is_passed_to_execution():
 
     assert actions == plan["actions"]
     assert calls == plan["actions"]
+
+
+def test_ai_logging_reports_plan_and_execution_progress():
+    plan = {
+        "actions": [
+            {"action": "open", "target": "youtube", "params": {}},
+            {"action": "search", "target": "Python", "params": {"engine": "google"}},
+        ]
+    }
+
+    output_buffer = io.StringIO()
+    with redirect_stdout(output_buffer):
+        process_natural_language_command(
+            "Open YouTube and search for Python",
+            executor_func=lambda command: None,
+            brain=FakeBrain(plan),
+            context_engine=FakeContextEngine(),
+        )
+
+    output = output_buffer.getvalue()
+    assert "[AI] Received natural-language command:" in output
+    assert "[AI] Building context" in output
+    assert "[AI] Calling AIBrain" in output
+    assert "[AI] Received validated action plan with 2 action(s)" in output
+    assert "[AI] Action 1: action=open, target=youtube, params={}" in output
+    assert "[AI] Action 2: action=search, target=Python, params={'engine': 'google'}" in output
+    assert "[AI] Executing action 1/2" in output
+    assert "[AI] Executing action 2/2" in output
 
 
 def test_multiple_actions_are_dispatched_in_order():

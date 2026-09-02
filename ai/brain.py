@@ -67,9 +67,10 @@ class AIBrain:
             "Do not execute commands. "
             "Do not generate Python, shell, filesystem, or code execution instructions. "
             "The JSON must match this schema: "
-            '{"actions":[{"action":"open","target":"chrome","params":{}}]}. '
+            '{"actions":[{"action":"open","target":"example-target","params":{}}]}. '
             f"Allowed actions are: {sorted(self.VALID_ACTIONS)}. "
             "Every action must include a string 'action', a non-empty string 'target', and an object 'params'. "
+            "When a browser is needed, use the preferred browser from the supplied context. "
             "The user command is: "
             f"{command}. "
             f"Context: {self._format_context(context)} "
@@ -124,8 +125,22 @@ class AIBrain:
         if not isinstance(command, str) or not command.strip():
             raise ValueError("Command must be a non-empty string.")
 
+        context_text = self._format_context(context)
         prompt = self.build_prompt(command, context)
+        sections = (
+            "planner_instructions",
+            "action_schema",
+            "allowed_actions",
+            "validation_rules",
+            "user_command",
+            "context",
+            "output_format",
+        )
+        print(f"[AI] Prompt diagnostics: prompt_chars={len(prompt)}, context_chars={len(context_text)}")
+        print(f"[AI] Prompt diagnostics: sections={','.join(sections)}")
+        print("[AI] Calling GeminiProvider")
         raw_response = self.provider.generate_text(prompt)
+        print("[AI] Received AI response")
         cleaned_response = self._strip_code_fence(raw_response)
 
         try:

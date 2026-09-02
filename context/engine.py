@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional
 
+from config import BROWSERS
 from memory.manager import MemoryManager
 from context.models import MemoryContextEntry, StructuredContext
 from context.runtime import RuntimeContext
@@ -48,7 +49,10 @@ class ContextEngine:
         """
         runtime = RuntimeContext.collect()
         user_context = user_context or {}
-        system_context = system_context or {}
+        system_context = {
+            "browsers": BROWSERS,
+            **(system_context or {}),
+        }
 
         selected_memories = []
         if query:

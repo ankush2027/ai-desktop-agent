@@ -20,6 +20,18 @@ def test_runtime_information_included():
     assert context.system_context["default_browser"] == "Chrome"
 
 
+def test_browser_configuration_is_exposed_in_system_context():
+    manager = MemoryManager()
+    engine = ContextEngine(manager)
+
+    context = engine.build_context()
+
+    assert context.system_context["browsers"] == {
+        "available": ["safari", "brave"],
+        "preferred": "brave",
+    }
+
+
 def test_memories_are_included_via_memory_manager():
     """ContextEngine should use MemoryManager to retrieve memories."""
     manager = MemoryManager()

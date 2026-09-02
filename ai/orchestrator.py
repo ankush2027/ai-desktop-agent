@@ -11,9 +11,10 @@ class AIOrchestrator:
     def __init__(self, brain: Optional[AIBrain] = None, context_engine: Optional[ContextEngine] = None):
         self.memory_manager = MemoryManager()
         self.context_engine = context_engine or ContextEngine(self.memory_manager)
-        self.brain = brain or AIBrain()
+        self.brain = brain
 
     def build_context(self, command: str) -> Any:
+        print("[AI] Building context")
         return self.context_engine.build_context(
             user_context={"raw_command": command},
             system_context={"mode": "ai"},
@@ -47,9 +48,20 @@ class AIOrchestrator:
         return validated
 
     def handle_command(self, command: str) -> List[Dict[str, Any]]:
+        print(f"[AI] Received natural-language command: {command}")
         context = self.build_context(command)
+        print("[AI] Calling AIBrain")
+        if self.brain is None:
+            self.brain = AIBrain()
         plan = self.brain.plan(command, context)
-        return self.validate_plan(plan)
+        validated_actions = self.validate_plan(plan)
+        print(f"[AI] Received validated action plan with {len(validated_actions)} action(s)")
+        for index, action in enumerate(validated_actions, start=1):
+            print(
+                f"[AI] Action {index}: action={action['action']}, "
+                f"target={action['target']}, params={action['params']}"
+            )
+        return validated_actions
 
 
 def process_natural_language_command(
@@ -66,7 +78,8 @@ def process_natural_language_command(
         from executor import execute as default_execute
         dispatcher = default_execute
 
-    for action in actions:
+    for index, action in enumerate(actions, start=1):
+        print(f"[AI] Executing action {index}/{len(actions)}")
         dispatcher(action)
 
     return actions
