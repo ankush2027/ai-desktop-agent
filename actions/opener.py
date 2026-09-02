@@ -1,8 +1,8 @@
 import os
 import subprocess
 from actions.folders import open_folder
-from config import SITE_ALIASES, SITES, APPS ,FOLDERS
-from actions.browser import open_site
+from config import BROWSERS, SITE_ALIASES, SITES, APPS ,FOLDERS
+from actions.browser import open_browser, open_site
 from actions.apps import open_app
 
 def open_target(target="", params=None):
@@ -14,6 +14,10 @@ def open_target(target="", params=None):
 
     elif target in FOLDERS:
         open_folder(target)
+
+    elif target in BROWSERS["available"]:
+        url = params.get("url") if params else None
+        open_browser(target, url)
 
     elif os.path.exists(target):
         subprocess.run(["open", target])
