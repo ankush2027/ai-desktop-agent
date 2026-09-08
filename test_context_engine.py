@@ -1,5 +1,7 @@
 """Tests for the Context Engine."""
 
+from datetime import datetime, timedelta
+
 from memory import Memory, MemoryManager
 from context import ContextEngine
 
@@ -112,6 +114,57 @@ def test_context_does_not_expose_conflicting_browser_preferences():
     context = ContextEngine(manager).build_context(query="Open my preferred browser")
 
     assert [memory.content for memory in context.relevant_memories] == ["I prefer Safari"]
+
+
+def test_relevant_browser_preference_ranks_above_unrelated_preference():
+    manager = MemoryManager()
+    manager.clear_all_memories()
+    manager.store.add(Memory("I prefer Safari", "user_preference", 1.0))
+    manager.store.add(Memory("I like dark mode", "user_preference", 1.0))
+
+    context = ContextEngine(manager).build_context(query="Open my preferred browser")
+
+    assert [memory.content for memory in context.relevant_memories] == [
+        "I prefer Safari",
+        "I like dark mode",
+    ]
+
+
+def test_confidence_and_recency_are_predictable_for_equal_matches():
+    manager = MemoryManager()
+    manager.clear_all_memories()
+    base_time = datetime.now() - timedelta(days=1)
+    manager.store.add(Memory("I like blue", "user_preference", 0.5, base_time))
+    manager.store.add(
+        Memory("I like green", "user_preference", 1.0, base_time)
+    )
+
+    context = ContextEngine(manager).build_context(query="Open settings")
+
+    assert [memory.content for memory in context.relevant_memories] == [
+        "I like green",
+        "I like blue",
+    ]
+
+    manager.clear_all_memories()
+    manager.store.add(
+        Memory("I like blue", "user_preference", 1.0, base_time)
+    )
+    manager.store.add(
+        Memory(
+            "I like green",
+            "user_preference",
+            1.0,
+            base_time + timedelta(hours=1),
+        )
+    )
+
+    context = ContextEngine(manager).build_context(query="Open settings")
+
+    assert [memory.content for memory in context.relevant_memories] == [
+        "I like green",
+        "I like blue",
+    ]
 
 
 def test_structured_context_output():
