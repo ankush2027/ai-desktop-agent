@@ -140,6 +140,8 @@ class MemoryStore:
             existing.category = kwargs['category']
         if 'confidence' in kwargs:
             existing.confidence = max(0.0, min(1.0, kwargs['confidence']))
+        if 'timestamp' in kwargs:
+            existing.timestamp = kwargs['timestamp']
 
         self._connection.execute(
             """

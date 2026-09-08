@@ -156,3 +156,17 @@ def test_retrieval_deduplicates_existing_equivalent_rows():
         handle_command("What do you remember about Brave?")
 
     assert output.getvalue().splitlines() == ["I remember: I prefer Brave."]
+
+
+def test_remembering_new_browser_preference_replaces_old_retrieval():
+    manager = MemoryManager()
+    manager.clear_all_memories()
+
+    handle_command("Remember that I prefer Brave.")
+    handle_command("Remember that I prefer Safari.")
+
+    output = io.StringIO()
+    with redirect_stdout(output):
+        handle_command("What are my preferences?")
+
+    assert output.getvalue().splitlines() == ["I remember: I prefer Safari."]

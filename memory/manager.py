@@ -1,5 +1,7 @@
+import re
 from typing import List, Optional
 from datetime import datetime
+from config import BROWSERS
 from memory.models import Memory
 from memory.store import MemoryStore
 
@@ -51,6 +53,25 @@ class MemoryManager:
             if existing.content == content:
                 return existing.id
 
+        browser = self._browser_preference(content, category)
+        if browser:
+            browser_memories = [
+                memory
+                for memory in self.get_memories_by_category("user_preference")
+                if self._browser_preference(memory.content, memory.category)
+            ]
+            if browser_memories:
+                current = browser_memories[0]
+                self.update_memory(
+                    current.id,
+                    content=content,
+                    confidence=confidence,
+                    timestamp=timestamp or datetime.now(),
+                )
+                for stale in browser_memories[1:]:
+                    self.delete_memory(stale.id)
+                return current.id
+
         memory = Memory(
             content=content,
             category=category,
@@ -58,6 +79,16 @@ class MemoryManager:
             timestamp=timestamp,
         )
         return self.store.add(memory)
+
+    @staticmethod
+    def _browser_preference(content: str, category: str) -> Optional[str]:
+        """Return the normalized browser value for a supported preference."""
+        if category != "user_preference":
+            return None
+
+        browsers = "|".join(re.escape(browser) for browser in BROWSERS["available"])
+        match = re.fullmatch(rf"\s*I prefer\s+({browsers})\s*", content, re.IGNORECASE)
+        return match.group(1).lower() if match else None
     
     def get_memory(self, memory_id: str) -> Optional[Memory]:
         """
@@ -98,6 +129,7 @@ class MemoryManager:
         content: Optional[str] = None,
         category: Optional[str] = None,
         confidence: Optional[float] = None,
+        timestamp: Optional[datetime] = None,
     ) -> Optional[Memory]:
         """
         Update a memory with new values.
@@ -118,6 +150,8 @@ class MemoryManager:
             update_data['category'] = category
         if confidence is not None:
             update_data['confidence'] = confidence
+        if timestamp is not None:
+            update_data['timestamp'] = timestamp
         
         if not update_data:
             return self.get_memory(memory_id)

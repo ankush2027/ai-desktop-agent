@@ -103,6 +103,17 @@ def test_combined_context_deduplicates_memories_and_respects_limit():
     assert [memory.content for memory in limited_context.relevant_memories] == ["I prefer Brave"]
 
 
+def test_context_does_not_expose_conflicting_browser_preferences():
+    manager = MemoryManager()
+    manager.clear_all_memories()
+    manager.add_memory("I prefer Brave", "user_preference", 1.0)
+    manager.add_memory("I prefer Safari", "user_preference", 1.0)
+
+    context = ContextEngine(manager).build_context(query="Open my preferred browser")
+
+    assert [memory.content for memory in context.relevant_memories] == ["I prefer Safari"]
+
+
 def test_structured_context_output():
     """Structured output should be simple and deterministic."""
     manager = MemoryManager()

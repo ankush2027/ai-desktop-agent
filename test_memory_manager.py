@@ -208,6 +208,36 @@ def test_confidence_validation():
     print(f"✓ Confidence clamped to min: {memory.confidence}")
 
 
+def test_browser_preference_replacement():
+    """A newer browser preference replaces the previous browser preference."""
+    manager = MemoryManager()
+    manager.clear_all_memories()
+
+    brave_id = manager.add_memory("I prefer Brave", "user_preference", 0.8)
+    assert len(manager.search_memories("Brave", "user_preference")) == 1
+
+    safari_id = manager.add_memory("I prefer Safari", "user_preference", 0.95)
+    preferences = manager.get_memories_by_category("user_preference")
+
+    assert safari_id == brave_id
+    assert len(preferences) == 1
+    assert preferences[0].content == "I prefer Safari"
+    assert preferences[0].confidence == 0.95
+
+
+def test_unrelated_preferences_remain_during_browser_replacement():
+    """Replacing a browser preference should not remove unrelated preferences."""
+    manager = MemoryManager()
+    manager.clear_all_memories()
+
+    manager.add_memory("I prefer Brave", "user_preference", 1.0)
+    manager.add_memory("I like dark mode", "user_preference", 0.9)
+    manager.add_memory("I prefer Safari", "user_preference", 0.95)
+
+    contents = [memory.content for memory in manager.get_memories_by_category("user_preference")]
+    assert contents == ["I like dark mode", "I prefer Safari"]
+
+
 def run_all_tests():
     """Run all tests."""
     print("=" * 60)
@@ -221,6 +251,8 @@ def run_all_tests():
         test_memory_manager()
         test_memory_isolation()
         test_confidence_validation()
+        test_browser_preference_replacement()
+        test_unrelated_preferences_remain_during_browser_replacement()
 
         print("\n" + "=" * 60)
         print("✓ ALL TESTS PASSED!")
