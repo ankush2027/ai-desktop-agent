@@ -3,6 +3,7 @@ import json
 from ai import AIBrain
 from context import ContextEngine
 from memory import MemoryManager
+from ai.provider_manager import ProviderManager
 
 
 class FakeProvider:
@@ -41,6 +42,26 @@ def test_valid_action_plan_is_accepted():
     assert plan["actions"][0]["target"] == "chrome"
     assert plan["actions"][1]["action"] == "search"
     assert plan["actions"][1]["target"] == "Python FastAPI"
+
+
+def test_brain_uses_provider_manager_with_injected_provider():
+    provider = CaptureProvider()
+    manager = ProviderManager(provider=provider)
+    brain = AIBrain(provider_manager=manager)
+
+    plan = brain.plan("open Chrome")
+
+    assert plan["actions"][0]["action"] == "open"
+    assert manager.active_provider == "gemini"
+    assert provider.prompt is not None
+
+
+def test_brain_rejects_ambiguous_provider_configuration():
+    try:
+        AIBrain(provider=FakeProvider("{}"), provider_manager=ProviderManager(provider=FakeProvider("{}")))
+        assert False, "Expected ValueError when both provider options are supplied"
+    except ValueError as exc:
+        assert "either provider or provider_manager" in str(exc)
 
 
 def test_malformed_action_plan_is_rejected():

@@ -1,13 +1,9 @@
 import json
 import re
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Dict, Optional
 
-from ai.gemini import GeminiProvider
-
-
-class AIProvider(Protocol):
-    def generate_text(self, prompt: str) -> str:
-        ...
+from ai.provider import LLMProvider
+from ai.provider_manager import ProviderManager
 
 
 class AIBrain:
@@ -26,8 +22,14 @@ class AIBrain:
         "move",
     }
 
-    def __init__(self, provider: Optional[AIProvider] = None):
-        self.provider = provider or GeminiProvider()
+    def __init__(
+        self,
+        provider: Optional[LLMProvider] = None,
+        provider_manager: Optional[ProviderManager] = None,
+    ):
+        if provider is not None and provider_manager is not None:
+            raise ValueError("Provide either provider or provider_manager, not both.")
+        self.provider_manager = provider_manager or ProviderManager(provider=provider)
 
     def _format_context(self, context: Optional[Any]) -> str:
         if context is None:
@@ -139,7 +141,7 @@ class AIBrain:
         print(f"[AI] Prompt diagnostics: prompt_chars={len(prompt)}, context_chars={len(context_text)}")
         print(f"[AI] Prompt diagnostics: sections={','.join(sections)}")
         print("[AI] Calling GeminiProvider")
-        raw_response = self.provider.generate_text(prompt)
+        raw_response = self.provider_manager.generate_text(prompt)
         print("[AI] Received AI response")
         cleaned_response = self._strip_code_fence(raw_response)
 
