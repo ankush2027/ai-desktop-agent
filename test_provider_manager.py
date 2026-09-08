@@ -1,6 +1,7 @@
 import json
 
 from ai.brain import AIBrain
+from ai.errors import AIProviderError
 from ai.provider_manager import ProviderManager
 
 
@@ -33,3 +34,31 @@ def test_brain_uses_provider_manager_without_constructing_gemini_directly():
 
     assert plan["actions"][0]["target"] == "brave"
     assert len(provider.calls) == 1
+
+
+def test_provider_manager_translates_connection_failure():
+    class FailingProvider:
+        def generate_text(self, prompt):
+            raise ConnectionError("private connection detail")
+
+    manager = ProviderManager(provider=FailingProvider())
+
+    try:
+        manager.generate_text("hello")
+        assert False, "Expected AIProviderError"
+    except AIProviderError as exc:
+        assert str(exc) == "AI service unavailable."
+
+
+def test_provider_manager_sanitizes_provider_failure():
+    class FailingProvider:
+        def generate_text(self, prompt):
+            raise AIProviderError("provider secret")
+
+    manager = ProviderManager(provider=FailingProvider())
+
+    try:
+        manager.generate_text("hello")
+        assert False, "Expected AIProviderError"
+    except AIProviderError as exc:
+        assert str(exc) == "AI service unavailable."

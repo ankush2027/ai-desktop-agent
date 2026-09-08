@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, List, Optional
 from ai.brain import AIBrain
 from context import ContextEngine
 from memory import MemoryManager
+from ai.errors import AIPlanningError, AIServiceError
 
 
 class AIOrchestrator:
@@ -53,8 +54,15 @@ class AIOrchestrator:
         print("[AI] Calling AIBrain")
         if self.brain is None:
             self.brain = AIBrain()
-        plan = self.brain.plan(command, context)
-        validated_actions = self.validate_plan(plan)
+        try:
+            plan = self.brain.plan(command, context)
+            validated_actions = self.validate_plan(plan)
+        except AIServiceError:
+            print("[AI] Command failed: AI service unavailable or returned an unusable plan")
+            raise
+        except ValueError as exc:
+            print("[AI] Command failed: AI service unavailable or returned an unusable plan")
+            raise AIPlanningError("AI returned an unusable response.") from exc
         print(f"[AI] Received validated action plan with {len(validated_actions)} action(s)")
         for index, action in enumerate(validated_actions, start=1):
             print(

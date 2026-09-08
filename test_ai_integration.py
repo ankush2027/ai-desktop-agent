@@ -2,6 +2,7 @@ import io
 from contextlib import redirect_stdout
 
 import main
+from ai.errors import AIProviderError
 from ai.orchestrator import process_natural_language_command
 from context import ContextEngine
 from main import route_command
@@ -140,6 +141,44 @@ def test_malformed_ai_plan_is_rejected_safely():
         pass
 
     assert calls == []
+
+
+def test_ai_failure_does_not_execute_actions():
+    calls = []
+
+    def failing_process(command):
+        raise AIProviderError("AI service unavailable.")
+
+    original_process = main.process_natural_language_command
+    original_execute = main.execute
+    try:
+        main.process_natural_language_command = failing_process
+        main.execute = calls.append
+        result = main.handle_command("Open my preferred browser.")
+    finally:
+        main.process_natural_language_command = original_process
+        main.execute = original_execute
+
+    assert result == []
+    assert calls == []
+
+
+def test_deterministic_command_does_not_require_ai():
+    executed = []
+    original_process = main.process_natural_language_command
+    original_execute = main.execute
+    try:
+        main.process_natural_language_command = lambda command: (_ for _ in ()).throw(
+            AssertionError("deterministic command must not call AI")
+        )
+        main.execute = executed.append
+        result = main.handle_command("open yt")
+    finally:
+        main.process_natural_language_command = original_process
+        main.execute = original_execute
+
+    assert result == [{"action": "open", "target": "yt", "params": {}}]
+    assert executed == result
 
 
 def test_existing_v1_execution_still_works():

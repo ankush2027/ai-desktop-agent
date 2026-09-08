@@ -7,8 +7,10 @@ from google.genai import errors as genai_errors
 from google.genai._gaos.lib import compat_errors
 import httpx
 
+from ai.errors import AIProviderError
 
-class GeminiProviderError(ValueError):
+
+class GeminiProviderError(AIProviderError):
     """Application-level error raised when Gemini cannot complete a request."""
 
 
@@ -46,7 +48,7 @@ class GeminiProvider:
         ) as exc:
             reason = str(exc).splitlines()[0][:200] or exc.__class__.__name__
             print(f"[AI] Gemini request failed: {reason}")
-            raise GeminiProviderError(f"Gemini request failed: {reason}") from exc
+            raise GeminiProviderError("Gemini request failed.") from exc
 
         if hasattr(response, "output_text") and response.output_text:
             print("[AI] Gemini response received")

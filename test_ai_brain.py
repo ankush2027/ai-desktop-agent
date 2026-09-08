@@ -2,6 +2,7 @@ import json
 
 from ai import AIBrain
 from context import ContextEngine
+from ai.errors import AIPlanningError, AIProviderError
 from memory import MemoryManager
 from ai.provider_manager import ProviderManager
 
@@ -110,6 +111,30 @@ def test_invalid_json_is_rejected():
         assert False, "Expected ValueError for invalid JSON"
     except ValueError:
         pass
+
+
+def test_provider_failure_is_exposed_as_controlled_ai_error():
+    class FailingProvider:
+        def generate_text(self, prompt):
+            raise AIProviderError("AI service unavailable.")
+
+    brain = AIBrain(FailingProvider())
+
+    try:
+        brain.plan("open Chrome")
+        assert False, "Expected AIProviderError"
+    except AIProviderError as exc:
+        assert str(exc) == "AI service unavailable."
+
+
+def test_unusable_provider_response_is_exposed_as_planning_error():
+    brain = AIBrain(FakeProvider("not valid json"))
+
+    try:
+        brain.plan("open Chrome")
+        assert False, "Expected AIPlanningError"
+    except AIPlanningError as exc:
+        assert str(exc) == "AI returned an unusable response."
 
 
 def test_real_natural_language_prompt_is_sized_and_structured_without_api_call():

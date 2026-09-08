@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 
 from ai.provider import LLMProvider
 from ai.provider_manager import ProviderManager
+from ai.errors import AIPlanningError
 
 
 class AIBrain:
@@ -147,7 +148,7 @@ class AIBrain:
 
         try:
             parsed = json.loads(cleaned_response)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"Invalid Gemini JSON response: {exc.msg}") from exc
-
-        return self.validate_action_plan(parsed)
+            return self.validate_action_plan(parsed)
+        except (json.JSONDecodeError, ValueError) as exc:
+            print("[AI] Planning failed: unusable provider response")
+            raise AIPlanningError("AI returned an unusable response.") from exc

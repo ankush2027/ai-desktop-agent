@@ -2,6 +2,7 @@ import re
 import os
 
 from ai.orchestrator import process_natural_language_command
+from ai.errors import AIServiceError
 from parser import parse_command
 from executor import execute
 from memory import MemoryManager
@@ -177,6 +178,9 @@ def handle_command(command):
 
     try:
         return process_natural_language_command(command)
+    except AIServiceError as exc:
+        print(str(exc))
+        return []
     except ValueError as exc:
         print(f"Invalid command: {exc}")
         print("Invalid command. Type 'help' to see available commands.")
