@@ -1,9 +1,11 @@
 import re
+import os
 
 from ai.orchestrator import process_natural_language_command
 from parser import parse_command
 from executor import execute
 from memory import MemoryManager
+from config import APPS, BROWSERS, FOLDERS, SITE_ALIASES, SITES
 
 
 REMEMBER_PATTERN = re.compile(r"^remember(?:\s+that)?\s+(.+?)\s*[.!?]?$", re.IGNORECASE)
@@ -69,6 +71,23 @@ def _unique_memories(memories):
     return unique_memories
 
 
+def _is_deterministic_open_target(target):
+    """Return whether an open target is resolvable without AI context."""
+    normalized_target = target.strip().lower()
+    known_targets = (
+        set(SITES)
+        | set(SITE_ALIASES)
+        | set(APPS)
+        | set(FOLDERS)
+        | set(BROWSERS["available"])
+    )
+    return (
+        normalized_target in known_targets
+        or normalized_target.startswith(("file ", "folder "))
+        or os.path.exists(target)
+    )
+
+
 def route_command(command):
     """Return whether this command is handled by the V1 parser or the AI path."""
     normalized = command.strip().lower()
@@ -98,6 +117,8 @@ def route_command(command):
         return "ai", None
 
     if len(parsed) == 1:
+        if parsed[0]["action"] == "open" and not _is_deterministic_open_target(parsed[0]["target"]):
+            return "ai", None
         return "v1", parsed
 
     multi_action_parts = [part.strip() for part in normalized.split(" and ") if part.strip()]

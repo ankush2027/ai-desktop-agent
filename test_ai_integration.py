@@ -1,8 +1,11 @@
 import io
 from contextlib import redirect_stdout
 
+import main
 from ai.orchestrator import process_natural_language_command
+from context import ContextEngine
 from main import route_command
+from memory import MemoryManager
 from parser import parse_command
 
 
@@ -31,6 +34,16 @@ def test_route_command_distinguishes_v1_from_ai_paths():
     route, parsed = route_command("create file notes.txt and delete file old.txt")
     assert route == "v1"
     assert parsed is not None
+
+    for command in ("open yt", "open google", "open gmail", "open github",
+                    "open vscode", "open calculator", "open brave", "open safari"):
+        route, parsed = route_command(command)
+        assert route == "v1"
+        assert parsed is not None
+
+    route, parsed = route_command("Open my preferred browser.")
+    assert route == "ai"
+    assert parsed is None
 
 
 def test_ai_plan_generation_is_passed_to_execution():
@@ -133,6 +146,59 @@ def test_existing_v1_execution_still_works():
     parsed = parse_command("open file notes.txt")
 
     assert parsed == [{"action": "open", "target": "file notes.txt", "params": {}}]
+
+
+def test_context_dependent_open_reaches_ai_with_preference_context():
+    manager = MemoryManager()
+    manager.clear_all_memories()
+    manager.add_memory("I prefer Brave", "user_preference", 1.0)
+    captured = {}
+
+    class CapturingBrain:
+        def plan(self, command, context=None):
+            captured["command"] = command
+            captured["context"] = context.to_dict()
+            return {"actions": [{"action": "open", "target": "brave", "params": {}}]}
+
+    executed = []
+    actions = process_natural_language_command(
+        "Open my preferred browser.",
+        executor_func=executed.append,
+        brain=CapturingBrain(),
+        context_engine=ContextEngine(manager),
+    )
+
+    assert actions == [{"action": "open", "target": "brave", "params": {}}]
+    assert executed == actions
+    assert any(
+        memory["content"] == "I prefer Brave"
+        and memory["category"] == "user_preference"
+        for memory in captured["context"]["relevant_memories"]
+    )
+
+
+def test_handle_command_routes_context_dependent_open_to_ai():
+    calls = []
+    original_process = main.process_natural_language_command
+    original_execute = main.execute
+
+    def fake_process(command):
+        calls.append(command)
+        return [{"action": "open", "target": "brave", "params": {}}]
+
+    try:
+        main.process_natural_language_command = fake_process
+        main.execute = lambda command: (_ for _ in ()).throw(
+            AssertionError("context-dependent open must not use V1 execution")
+        )
+
+        result = main.handle_command("Open my preferred browser.")
+    finally:
+        main.process_natural_language_command = original_process
+        main.execute = original_execute
+
+    assert calls == ["Open my preferred browser."]
+    assert result == [{"action": "open", "target": "brave", "params": {}}]
 
 
 if __name__ == "__main__":

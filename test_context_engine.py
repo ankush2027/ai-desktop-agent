@@ -1,6 +1,6 @@
 """Tests for the Context Engine."""
 
-from memory import MemoryManager
+from memory import Memory, MemoryManager
 from context import ContextEngine
 
 
@@ -59,6 +59,48 @@ def test_context_engine_uses_memory_manager_not_store_directly():
 
     assert context.relevant_memories[0].content == "User likes Python"
     assert context.summary.startswith("Current time:")
+
+
+def test_preference_is_included_when_it_does_not_match_query():
+    manager = MemoryManager()
+    manager.clear_all_memories()
+    manager.add_memory("I prefer Brave", "user_preference", 1.0)
+
+    context = ContextEngine(manager).build_context(query="Open my preferred browser")
+
+    assert [memory.content for memory in context.relevant_memories] == ["I prefer Brave"]
+
+
+def test_command_matches_and_preferences_are_combined():
+    manager = MemoryManager()
+    manager.clear_all_memories()
+    manager.add_memory("User likes Python", "interaction", 1.0)
+    manager.add_memory("I prefer Brave", "user_preference", 1.0)
+
+    context = ContextEngine(manager).build_context(query="User likes Python")
+
+    assert [memory.content for memory in context.relevant_memories] == [
+        "User likes Python",
+        "I prefer Brave",
+    ]
+
+
+def test_combined_context_deduplicates_memories_and_respects_limit():
+    manager = MemoryManager()
+    manager.clear_all_memories()
+    manager.store.add(Memory("I prefer Brave", "user_preference", 1.0))
+    manager.store.add(Memory("I prefer Brave", "user_preference", 1.0))
+    manager.add_memory("I prefer Brave browser", "user_preference", 1.0)
+
+    context = ContextEngine(manager).build_context(query="Brave", max_memories=2)
+
+    assert [memory.content for memory in context.relevant_memories] == [
+        "I prefer Brave",
+        "I prefer Brave browser",
+    ]
+
+    limited_context = ContextEngine(manager).build_context(query="Brave", max_memories=1)
+    assert [memory.content for memory in limited_context.relevant_memories] == ["I prefer Brave"]
 
 
 def test_structured_context_output():

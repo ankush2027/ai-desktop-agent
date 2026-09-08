@@ -57,6 +57,9 @@ class ContextEngine:
         selected_memories = []
         if query:
             selected_memories = self.memory_manager.search_memories(query)
+            selected_memories.extend(
+                self.memory_manager.get_memories_by_category("user_preference")
+            )
         elif categories:
             for category in categories:
                 selected_memories.extend(self.memory_manager.get_memories_by_category(category))
@@ -65,10 +68,14 @@ class ContextEngine:
 
         deduped: List[Any] = []
         seen_ids = set()
+        seen_content = set()
         for memory in selected_memories:
-            if memory.id not in seen_ids:
-                seen_ids.add(memory.id)
-                deduped.append(memory)
+            content_key = (memory.category, memory.content)
+            if memory.id in seen_ids or content_key in seen_content:
+                continue
+            seen_ids.add(memory.id)
+            seen_content.add(content_key)
+            deduped.append(memory)
 
         relevant_memories = self._normalize_memories(deduped[:max_memories])
         summary = self._build_summary(runtime, relevant_memories)
