@@ -46,6 +46,11 @@ class MemoryManager:
         Returns:
             The unique ID of the added memory
         """
+        existing_memories = self.search_memories(content, category=category)
+        for existing in existing_memories:
+            if existing.content == content:
+                return existing.id
+
         memory = Memory(
             content=content,
             category=category,
