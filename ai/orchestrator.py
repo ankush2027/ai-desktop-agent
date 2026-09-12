@@ -4,15 +4,22 @@ from ai.brain import AIBrain
 from context import ContextEngine
 from memory import MemoryManager
 from ai.errors import AIPlanningError, AIServiceError
+from ai.action_policy import ActionPolicy, ActionPolicyError
 
 
 class AIOrchestrator:
     """Minimal orchestration layer that converts natural-language input into executor actions."""
 
-    def __init__(self, brain: Optional[AIBrain] = None, context_engine: Optional[ContextEngine] = None):
+    def __init__(
+        self,
+        brain: Optional[AIBrain] = None,
+        context_engine: Optional[ContextEngine] = None,
+        action_policy: Optional[ActionPolicy] = None,
+    ):
         self.memory_manager = MemoryManager()
         self.context_engine = context_engine or ContextEngine(self.memory_manager)
         self.brain = brain
+        self.action_policy = action_policy or ActionPolicy()
 
     def build_context(self, command: str) -> Any:
         print("[AI] Building context")
@@ -57,6 +64,10 @@ class AIOrchestrator:
         try:
             plan = self.brain.plan(command, context)
             validated_actions = self.validate_plan(plan)
+            validated_actions = self.action_policy.validate(validated_actions)
+        except ActionPolicyError:
+            print("[AI] Command failed: action rejected by safety policy")
+            raise
         except AIServiceError:
             print("[AI] Command failed: AI service unavailable or returned an unusable plan")
             raise

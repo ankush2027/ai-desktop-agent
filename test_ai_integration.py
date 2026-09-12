@@ -3,6 +3,7 @@ from contextlib import redirect_stdout
 
 import main
 from ai.errors import AIProviderError
+from ai.action_policy import ActionPolicyError
 from ai.orchestrator import process_natural_language_command
 from context import ContextEngine
 from main import route_command
@@ -75,7 +76,11 @@ def test_ai_logging_reports_plan_and_execution_progress():
     plan = {
         "actions": [
             {"action": "open", "target": "youtube", "params": {}},
-            {"action": "search", "target": "Python", "params": {"engine": "google"}},
+            {
+                "action": "search",
+                "target": "Python",
+                "params": {"engine": "google", "query": "Python"},
+            },
         ]
     }
 
@@ -94,9 +99,84 @@ def test_ai_logging_reports_plan_and_execution_progress():
     assert "[AI] Calling AIBrain" in output
     assert "[AI] Received validated action plan with 2 action(s)" in output
     assert "[AI] Action 1: action=open, target=youtube, params={}" in output
-    assert "[AI] Action 2: action=search, target=Python, params={'engine': 'google'}" in output
+    assert (
+        "[AI] Action 2: action=search, target=Python, "
+        "params={'engine': 'google', 'query': 'Python'}"
+    ) in output
     assert "[AI] Executing action 1/2" in output
     assert "[AI] Executing action 2/2" in output
+
+
+def test_browser_preference_plan_passes_policy():
+    plan = {
+        "actions": [
+            {
+                "action": "open",
+                "target": "brave",
+                "params": {"browser": "brave"},
+            }
+        ]
+    }
+    executed = []
+
+    actions = process_natural_language_command(
+        "Open my preferred browser",
+        executor_func=executed.append,
+        brain=FakeBrain(plan),
+        context_engine=FakeContextEngine(),
+    )
+
+    assert actions == plan["actions"]
+    assert executed == plan["actions"]
+
+
+def test_preferred_browser_mode_plan_passes_policy_and_executes():
+    plan = {
+        "actions": [
+            {
+                "action": "open",
+                "target": "brave",
+                "params": {"mode": "dark"},
+            }
+        ]
+    }
+    executed = []
+
+    actions = process_natural_language_command(
+        "Open my preferred browser",
+        executor_func=executed.append,
+        brain=FakeBrain(plan),
+        context_engine=FakeContextEngine(),
+    )
+
+    assert actions == plan["actions"]
+    assert executed == plan["actions"]
+
+
+def test_realistic_youtube_search_plan_passes_policy_and_executes():
+    plan = {
+        "actions": [
+            {
+                "action": "open",
+                "target": "brave",
+                "params": {
+                    "theme": "dark",
+                    "url": "https://www.youtube.com/results?search_query=Python",
+                },
+            }
+        ]
+    }
+    executed = []
+
+    actions = process_natural_language_command(
+        "Open YouTube and search for Python",
+        executor_func=executed.append,
+        brain=FakeBrain(plan),
+        context_engine=FakeContextEngine(),
+    )
+
+    assert actions == plan["actions"]
+    assert executed == plan["actions"]
 
 
 def test_multiple_actions_are_dispatched_in_order():
@@ -160,6 +240,29 @@ def test_ai_failure_does_not_execute_actions():
         main.execute = original_execute
 
     assert result == []
+    assert calls == []
+
+
+def test_policy_failure_executes_zero_actions():
+    calls = []
+    plan = {
+        "actions": [
+            {"action": "open", "target": "brave", "params": {}},
+            {"action": "delete", "target": "notes.txt", "params": {"type": "file"}},
+        ]
+    }
+
+    try:
+        process_natural_language_command(
+            "open brave and delete notes.txt",
+            executor_func=calls.append,
+            brain=FakeBrain(plan),
+            context_engine=FakeContextEngine(),
+        )
+        assert False, "Expected ActionPolicyError"
+    except ActionPolicyError:
+        pass
+
     assert calls == []
 
 
