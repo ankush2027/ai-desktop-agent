@@ -9,6 +9,11 @@ from actions.list_items import list_items
 from logger import log_action
 from actions.opener import open_target
 from actions.search import search_google
+from memory import MemoryManager
+from context import ContextEngine
+
+memory_manager = MemoryManager()
+context_engine = ContextEngine(memory_manager)
 
 ACTION_MAP = {
     "open": open_target,
@@ -23,6 +28,7 @@ ACTION_MAP = {
     "move":move
 }
 
+
 def execute(command):
     action = command.get("action")
     target = command.get("target")
@@ -32,6 +38,14 @@ def execute(command):
 
     if handler:
         log_action(action, target)
+
+        query = target or action or ""
+        context = context_engine.build_context(
+            user_context={"action": action, "target": target, "params": params},
+            system_context={"command": command},
+            query=query,
+        )
+        params["context"] = context.to_dict()
         handler(target, params)
     else:
         print(f"Unsupported action: {action}")

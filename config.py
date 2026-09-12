@@ -12,6 +12,12 @@ APPS = {
     "whatsapp": "WhatsApp.app"
 }
 
+BROWSERS = {
+    "available": ["safari", "brave"],
+    "preferred": "brave",
+}
+
+
 SITE_ALIASES={
     "yt":"youtube",
     "mail":"gmail",
