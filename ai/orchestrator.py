@@ -5,6 +5,7 @@ from context import ContextEngine
 from memory import MemoryManager
 from ai.errors import AIPlanningError, AIServiceError
 from ai.action_policy import ActionPolicy, ActionPolicyError
+from ai.task_execution import execute_task
 
 
 class AIOrchestrator:
@@ -97,8 +98,6 @@ def process_natural_language_command(
         from executor import execute as default_execute
         dispatcher = default_execute
 
-    for index, action in enumerate(actions, start=1):
-        print(f"[AI] Executing action {index}/{len(actions)}")
-        dispatcher(action)
+    execute_task(actions, dispatcher)
 
     return actions

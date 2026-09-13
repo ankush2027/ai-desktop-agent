@@ -8,3 +8,7 @@ class AIProviderError(AIServiceError):
 
 class AIPlanningError(AIServiceError):
     """The provider response could not be converted into a valid action plan."""
+
+
+class TaskExecutionError(AIServiceError):
+    """A task step failed during application-owned execution."""
