@@ -87,6 +87,11 @@ class ActionPolicy:
                 raise ActionPolicyError(
                     f"AI parameter '{key}' contains unsafe characters."
                 )
+            if action_name == "search" and key == "engine":
+                if params[key].lower() not in {"google", "youtube"}:
+                    raise ActionPolicyError("AI search engine is not supported.")
+            if action_name == "search" and key == "query" and not params[key].strip():
+                raise ActionPolicyError("AI search query must not be empty.")
             if action_name == "open" and key == "url":
                 parsed = urlparse(params[key])
                 if parsed.scheme not in {"http", "https"} or not parsed.netloc:

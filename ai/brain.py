@@ -74,6 +74,12 @@ class AIBrain:
             f"Allowed actions are: {sorted(self.VALID_ACTIONS)}. "
             "Every action must include a string 'action', a non-empty string 'target', and an object 'params'. "
             "When a browser is needed, use the preferred browser from the supplied context. "
+            "For YouTube searches, return one search action with the raw search terms as target "
+            "and params {\"engine\":\"youtube\"}. For example: "
+            '{"actions":[{"action":"search","target":"Python tutorials","params":{"engine":"youtube"}}]}. '
+            "The application uses the resolved system_context.browsers.preferred browser and "
+            "encodes the query itself. Do not generate a URL, pre-encode the query, add browser, "
+            "theme or mode parameters, or open YouTube separately for this workflow. "
             "The user command is: "
             f"{command}. "
             f"Context: {self._format_context(context)} "

@@ -11,7 +11,7 @@ def test_brave_with_url_opens_url_in_brave():
         open_target("brave", {"url": "https://www.youtube.com/results?search_query=python"})
 
     run.assert_called_once_with(
-        ["open", "-a", "Brave Browser", "https://www.youtube.com/results?search_query=python"]
+        ["open", "-a", "Brave Browser", "https://www.youtube.com/results?search_query=python"], check=True
     )
 
 
@@ -19,14 +19,14 @@ def test_safari_with_url_opens_url_in_safari():
     with patch("actions.browser.subprocess.run") as run:
         open_target("safari", {"url": "https://www.youtube.com"})
 
-    run.assert_called_once_with(["open", "-a", "Safari", "https://www.youtube.com"])
+    run.assert_called_once_with(["open", "-a", "Safari", "https://www.youtube.com"], check=True)
 
 
 def test_browser_without_url_launches_browser():
     with patch("actions.browser.subprocess.run") as run:
         open_target("brave", {})
 
-    run.assert_called_once_with(["open", "-a", "Brave Browser"])
+    run.assert_called_once_with(["open", "-a", "Brave Browser"], check=True)
 
 
 def test_existing_site_opening_behavior_is_preserved():
@@ -52,7 +52,7 @@ def test_search_uses_safe_target_without_shell_execution():
         search_google("Mphasis interview questions")
 
     open_browser.assert_called_once_with(
-        "https://www.google.com/search?q=Mphasis interview questions"
+        "https://www.google.com/search?q=Mphasis+interview+questions"
     )
 
 

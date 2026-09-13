@@ -51,16 +51,7 @@ class ContextEngine:
     @staticmethod
     def _is_browser_preference(memory: Any) -> bool:
         """Identify the supported browser preference shape without semantic lookup."""
-        browsers = "|".join(re.escape(browser) for browser in BROWSERS["available"])
-        return (
-            memory.category == "user_preference"
-            and re.fullmatch(
-                rf"\s*i prefer\s+({browsers})\s*",
-                memory.content,
-                flags=re.IGNORECASE,
-            )
-            is not None
-        )
+        return MemoryManager._browser_preference(memory.content, memory.category) is not None
 
     @classmethod
     def _rank_query_memories(cls, query: str, memories: List[Any], specific_ids: set) -> List[Any]:
@@ -152,6 +143,16 @@ class ContextEngine:
 
         relevant_memories = self._normalize_memories(deduped[:max_memories])
         summary = self._build_summary(runtime, relevant_memories)
+
+        # Resolve preferences before truncation so execution is independent of
+        # the query's memory ranking and prompt size limit.
+        browsers = dict(BROWSERS)
+        for memory in sorted(selected_memories, key=lambda item: item.timestamp, reverse=True):
+            browser = self.memory_manager._browser_preference(memory.content, memory.category)
+            if browser:
+                browsers["preferred"] = browser
+                break
+        system_context["browsers"] = browsers
 
         return StructuredContext(
             timestamp=runtime["current_datetime"],

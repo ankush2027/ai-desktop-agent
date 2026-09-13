@@ -118,6 +118,8 @@ def route_command(command):
         return "ai", None
 
     if len(parsed) == 1:
+        if parsed[0]["action"] == "search" and re.search(r"\byoutube\b", normalized):
+            return "ai", None
         if parsed[0]["action"] == "open" and not _is_deterministic_open_target(parsed[0]["target"]):
             return "ai", None
         return "v1", parsed
