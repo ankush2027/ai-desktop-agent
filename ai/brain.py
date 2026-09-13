@@ -87,6 +87,25 @@ class AIBrain:
             return match.group(1).strip()
         return cleaned
 
+    def _parse_json_response(self, response: str) -> Any:
+        cleaned = self._strip_code_fence(response)
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError as original_error:
+            payload_start = next(
+                (
+                    index
+                    for index, character in enumerate(cleaned)
+                    if character in "{["
+                ),
+                None,
+            )
+            if payload_start is None:
+                raise original_error
+
+            payload, _ = json.JSONDecoder().raw_decode(cleaned[payload_start:])
+            return payload
+
     def validate_action_plan(self, payload: Any) -> Dict[str, Any]:
         if not isinstance(payload, dict):
             raise ValueError("Action plan must be a JSON object.")
@@ -144,10 +163,9 @@ class AIBrain:
         print("[AI] Calling GeminiProvider")
         raw_response = self.provider_manager.generate_text(prompt)
         print("[AI] Received AI response")
-        cleaned_response = self._strip_code_fence(raw_response)
 
         try:
-            parsed = json.loads(cleaned_response)
+            parsed = self._parse_json_response(raw_response)
             return self.validate_action_plan(parsed)
         except (json.JSONDecodeError, ValueError) as exc:
             print("[AI] Planning failed: unusable provider response")

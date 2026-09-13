@@ -113,6 +113,31 @@ def test_invalid_json_is_rejected():
         pass
 
 
+def test_json_action_plan_with_surrounding_text_is_parsed():
+    response = (
+        "Here is the requested plan:\n"
+        '{"actions":[{"action":"open","target":"youtube","params":{}}]}\n'
+        "No other actions are required."
+    )
+    brain = AIBrain(FakeProvider(response))
+
+    plan = brain.plan("Open YouTube")
+
+    assert plan == {
+        "actions": [{"action": "open", "target": "youtube", "params": {}}]
+    }
+
+
+def test_malformed_json_with_surrounding_text_is_rejected():
+    brain = AIBrain(FakeProvider("Here is the plan: {not valid json}"))
+
+    try:
+        brain.plan("Open YouTube")
+        assert False, "Expected AIPlanningError"
+    except AIPlanningError:
+        pass
+
+
 def test_provider_failure_is_exposed_as_controlled_ai_error():
     class FailingProvider:
         def generate_text(self, prompt):
@@ -170,5 +195,7 @@ if __name__ == "__main__":
     test_unsupported_action_is_rejected()
     test_missing_target_is_rejected()
     test_invalid_json_is_rejected()
+    test_json_action_plan_with_surrounding_text_is_parsed()
+    test_malformed_json_with_surrounding_text_is_rejected()
     test_real_natural_language_prompt_is_sized_and_structured_without_api_call()
     print("AI brain tests passed.")
