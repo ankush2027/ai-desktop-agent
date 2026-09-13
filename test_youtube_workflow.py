@@ -71,7 +71,8 @@ def test_full_workflow_through_real_executor(manager, browser, app, capsys):
     def process(raw):
         return process_natural_language_command(raw, brain=AIBrain(Provider()), context_engine=engine)
 
-    with patch.object(main, "process_natural_language_command", side_effect=process), \
+    with patch("actions.browser.platform.system", return_value="Darwin"), \
+         patch.object(main, "process_natural_language_command", side_effect=process), \
          patch.object(executor, "context_engine", engine), \
          patch.object(executor, "log_action"), \
          patch("actions.browser.subprocess.run", return_value=subprocess.CompletedProcess([], 0)) as launch:
@@ -99,7 +100,8 @@ def test_launch_failure_stops_task_and_cli_reports_failure(manager, failure, cap
     def process(raw):
         return process_natural_language_command(raw, brain=Brain(), context_engine=engine)
 
-    with patch.object(main, "process_natural_language_command", side_effect=process), \
+    with patch("actions.browser.platform.system", return_value="Darwin"), \
+         patch.object(main, "process_natural_language_command", side_effect=process), \
          patch.object(executor, "context_engine", engine), \
          patch.object(executor, "log_action"), \
          patch("actions.browser.subprocess.run", side_effect=failure) as launch, \

@@ -1,3 +1,4 @@
+import re
 from typing import Any, Callable, Dict, List, Optional
 
 from ai.brain import AIBrain
@@ -33,6 +34,8 @@ class AIOrchestrator:
     def validate_plan(self, plan: Dict[str, Any]) -> List[Dict[str, Any]]:
         if not isinstance(plan, dict):
             raise ValueError("AI plan must be a dictionary.")
+        if set(plan) != {"actions"}:
+            raise ValueError("AI plan contains unsupported fields.")
 
         actions = plan.get("actions")
         if not isinstance(actions, list):
@@ -45,6 +48,8 @@ class AIOrchestrator:
         for item in actions:
             if not isinstance(item, dict):
                 raise ValueError("Each action in the AI plan must be an object.")
+            if set(item) - {"action", "target", "params"}:
+                raise ValueError("AI action contains unsupported fields.")
             if not isinstance(item.get("action"), str) or not item["action"].strip():
                 raise ValueError("Each AI action must contain a valid 'action' string.")
             if not isinstance(item.get("target"), str) or not item["target"].strip():
@@ -57,7 +62,7 @@ class AIOrchestrator:
         return validated
 
     def handle_command(self, command: str) -> List[Dict[str, Any]]:
-        print(f"[AI] Received natural-language command: {command}")
+        print("[AI] Received natural-language command: [content omitted]")
         context = self.build_context(command)
         print("[AI] Calling AIBrain")
         if self.brain is None:
@@ -66,6 +71,24 @@ class AIOrchestrator:
             plan = self.brain.plan(command, context)
             validated_actions = self.validate_plan(plan)
             validated_actions = self.action_policy.validate(validated_actions)
+            for action in validated_actions:
+                if action["action"] == "draft_email":
+                    if not re.search(r"\b(?:draft|compose|prepare)\b", command, re.IGNORECASE):
+                        raise ActionPolicyError("Email preparation requires an explicit draft, compose, or prepare request.")
+                    if re.search(r"(?:^|\bthen\s+|\band\s+)(?:please\s+)?send\b", command.strip(), re.IGNORECASE):
+                        raise ActionPolicyError("Sending email is not supported.")
+                    # Extractive first version: do not execute invented content.
+                    normalized = " ".join(command.split()).casefold()
+                    for value in action["params"].values():
+                        if value and " ".join(value.split()).casefold() not in normalized:
+                            raise ActionPolicyError("Email fields must come from the user's command.")
+                    recipient = action["params"]["to"]
+                    address_chars = r"[\w.!#$%&'*+/=?^_`{|}~@-]"
+                    if recipient and not re.search(
+                        rf"(?<!{address_chars}){re.escape(recipient)}(?!{address_chars})",
+                        command, re.IGNORECASE,
+                    ):
+                        raise ActionPolicyError("Email recipient must match an address supplied by the user.")
         except ActionPolicyError:
             print("[AI] Command failed: action rejected by safety policy")
             raise
@@ -77,6 +100,9 @@ class AIOrchestrator:
             raise AIPlanningError("AI returned an unusable response.") from exc
         print(f"[AI] Received validated action plan with {len(validated_actions)} action(s)")
         for index, action in enumerate(validated_actions, start=1):
+            if action["action"] == "draft_email":
+                print(f"[AI] Action {index}: action=draft_email, target=gmail, params=[redacted]")
+                continue
             print(
                 f"[AI] Action {index}: action={action['action']}, "
                 f"target={action['target']}, params={action['params']}"

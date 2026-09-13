@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 
 from config import APPS, BROWSERS, FOLDERS, SITE_ALIASES, SITES
 from ai.errors import AIPlanningError
+from actions.email import compose_url
 
 
 class ActionPolicyError(AIPlanningError):
@@ -15,13 +16,21 @@ class ActionPolicyError(AIPlanningError):
 class ActionPolicy:
     """Allow only narrowly scoped, non-destructive AI actions."""
 
-    ALLOWED_ACTIONS = {"open", "search", "list", "help"}
+    ALLOWED_ACTIONS = {"open", "search", "list", "help", "draft_email"}
     _UNSAFE_TARGET = re.compile(r"[\x00-\x1f\x7f;&|`$]")
 
     def validate(self, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Validate a schema-checked plan before it reaches the executor."""
         for action in actions:
             action_name = action["action"]
+            if action_name == "draft_email":
+                if set(action) != {"action", "target", "params"}:
+                    raise ActionPolicyError("Email action contains unsupported fields.")
+                try:
+                    compose_url(action["target"], action["params"])
+                except ValueError as exc:
+                    raise ActionPolicyError(str(exc)) from None
+                continue
             if action_name == "delete":
                 raise ActionPolicyError("AI delete actions are not allowed.")
             if action_name not in self.ALLOWED_ACTIONS:

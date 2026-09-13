@@ -9,6 +9,7 @@ from actions.list_items import list_items
 from logger import log_action
 from actions.opener import open_target
 from actions.search import search_google
+from actions.email import draft_email
 from memory import MemoryManager
 from context import ContextEngine
 
@@ -16,6 +17,7 @@ memory_manager = MemoryManager()
 context_engine = ContextEngine(memory_manager)
 
 ACTION_MAP = {
+    "draft_email": draft_email,
     "open": open_target,
     "search": search_google,
     "list": list_items,

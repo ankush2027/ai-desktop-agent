@@ -21,6 +21,7 @@ class AIBrain:
         "rename",
         "copy",
         "move",
+        "draft_email",
     }
 
     def __init__(
@@ -80,6 +81,13 @@ class AIBrain:
             "The application uses the resolved system_context.browsers.preferred browser and "
             "encodes the query itself. Do not generate a URL, pre-encode the query, add browser, "
             "theme or mode parameters, or open YouTube separately for this workflow. "
+            "For email preparation use draft_email with target gmail and exactly three string params: "
+            "to, subject, body. Copy only text explicitly supplied in the command; never invent "
+            "addresses, contacts, subjects, greetings, signatures, or body text. Use an empty subject "
+            "when unspecified and an empty to when no email address is supplied. Do not resolve contacts "
+            "from memory. Preserve Unicode and body line breaks. Only compose preparation is supported. "
+            "Never send email or produce sending instructions, flags, URLs, or additional fields. "
+            "Reject requests to send, schedule, reply, forward, attach files, or use CC/BCC with an empty actions list. "
             "The user command is: "
             f"{command}. "
             f"Context: {self._format_context(context)} "
@@ -115,6 +123,8 @@ class AIBrain:
     def validate_action_plan(self, payload: Any) -> Dict[str, Any]:
         if not isinstance(payload, dict):
             raise ValueError("Action plan must be a JSON object.")
+        if set(payload) != {"actions"}:
+            raise ValueError("Action plan contains unsupported fields.")
 
         actions = payload.get("actions")
         if not isinstance(actions, list):
@@ -126,6 +136,8 @@ class AIBrain:
         for item in actions:
             if not isinstance(item, dict):
                 raise ValueError("Each action must be an object.")
+            if set(item) - {"action", "target", "params"}:
+                raise ValueError("Action contains unsupported fields.")
 
             action_name = item.get("action")
             if action_name not in self.VALID_ACTIONS:
