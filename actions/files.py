@@ -2,6 +2,6 @@ def create_file(file_name):
     try:
         file = open(file_name, "x")
         file.close()
-        print(f"Created '{file_name}'.")
+        print("File created.")
     except FileExistsError:
-        print(f"'{file_name}' already exists.")
+        print("File already exists.")

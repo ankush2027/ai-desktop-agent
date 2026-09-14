@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 logs/history.log
+memory.db
+.env
+.env.*
