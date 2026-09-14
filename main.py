@@ -190,8 +190,12 @@ def handle_command(command):
         return parsed
 
     if route == "v1":
-        for cmd in parsed:
-            execute(cmd)
+        try:
+            for cmd in parsed:
+                execute(cmd)
+        except Exception:
+            print("Command execution failed.")
+            return []
         return parsed
 
     try:

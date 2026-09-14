@@ -48,6 +48,7 @@ def execute(command):
             query=query,
         )
         params["context"] = context.to_dict()
-        handler(target, params)
+        if handler(target, params) is False:
+            raise RuntimeError("Action reported failure.")
     else:
-        print(f"Unsupported action: {action}")
+        raise ValueError("Unsupported action.")

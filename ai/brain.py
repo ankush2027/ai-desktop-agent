@@ -5,24 +5,14 @@ from typing import Any, Dict, Optional
 from ai.provider import LLMProvider
 from ai.provider_manager import ProviderManager
 from ai.errors import AIPlanningError
+from ai.plan_schema import ALLOWED_ACTIONS, MAX_ACTIONS, MAX_RESPONSE_CHARS, validate_plan
+from config import APPS, SITES, SITE_ALIASES
 
 
 class AIBrain:
     """Convert natural-language commands into validated structured action plans."""
 
-    VALID_ACTIONS = {
-        "open",
-        "search",
-        "list",
-        "help",
-        "exit",
-        "create",
-        "delete",
-        "rename",
-        "copy",
-        "move",
-        "draft_email",
-    }
+    VALID_ACTIONS = ALLOWED_ACTIONS
 
     def __init__(
         self,
@@ -73,7 +63,12 @@ class AIBrain:
             "The JSON must match this schema: "
             '{"actions":[{"action":"open","target":"example-target","params":{}}]}. '
             f"Allowed actions are: {sorted(self.VALID_ACTIONS)}. "
+            f"Return at most {MAX_ACTIONS} actions. Configured applications: {sorted(APPS)}. "
+            f"Configured sites/aliases: {sorted(set(SITES) | set(SITE_ALIASES))}. "
             "Every action must include a string 'action', a non-empty string 'target', and an object 'params'. "
+            "Open only configured sites/apps, supported browsers, or safe local documents/folders. "
+            "Open accepts only url on browser targets, restricted to configured site home URLs. "
+            "Do not supply browser, mode, or theme parameters. List targets are sites, apps, folders. "
             "When a browser is needed, use the preferred browser from the supplied context. "
             "For YouTube searches, return one search action with the raw search terms as target "
             "and params {\"engine\":\"youtube\"}. For example: "
@@ -94,72 +89,37 @@ class AIBrain:
             "Return only the JSON object, without markdown fences or extra text."
         )
 
-    def _strip_code_fence(self, response: str) -> str:
-        cleaned = response.strip()
-        match = re.search(r"```(?:json)?\s*(.*?)\s*```", cleaned, flags=re.DOTALL | re.IGNORECASE)
-        if match:
-            return match.group(1).strip()
-        return cleaned
-
     def _parse_json_response(self, response: str) -> Any:
-        cleaned = self._strip_code_fence(response)
-        try:
-            return json.loads(cleaned)
-        except json.JSONDecodeError as original_error:
-            payload_start = next(
-                (
-                    index
-                    for index, character in enumerate(cleaned)
-                    if character in "{["
-                ),
-                None,
-            )
-            if payload_start is None:
-                raise original_error
+        if not isinstance(response, str) or len(response) > MAX_RESPONSE_CHARS:
+            raise AIPlanningError("AI returned an unusable response.")
+        cleaned = response.strip()
+        # Retain the established harmless wrapper, not arbitrary competing prose.
+        cleaned = re.sub(r"^Here is (?:the requested plan|the plan):\s*", "", cleaned)
+        cleaned = re.sub(r"\s*No other actions are required\.$", "", cleaned)
+        if cleaned.startswith("```"):
+            match = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", cleaned, re.DOTALL | re.IGNORECASE)
+            if not match:
+                raise AIPlanningError("AI returned an unusable response.")
+            cleaned = match.group(1)
 
-            payload, _ = json.JSONDecoder().raw_decode(cleaned[payload_start:])
-            return payload
+        def unique_object(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise AIPlanningError("AI returned duplicate JSON keys.")
+                result[key] = value
+            return result
+
+        def invalid_constant(value):
+            raise AIPlanningError("AI returned an invalid JSON constant.")
+
+        try:
+            return json.loads(cleaned, object_pairs_hook=unique_object, parse_constant=invalid_constant)
+        except (ValueError, TypeError, RecursionError):
+            raise AIPlanningError("AI returned an unusable response.") from None
 
     def validate_action_plan(self, payload: Any) -> Dict[str, Any]:
-        if not isinstance(payload, dict):
-            raise ValueError("Action plan must be a JSON object.")
-        if set(payload) != {"actions"}:
-            raise ValueError("Action plan contains unsupported fields.")
-
-        actions = payload.get("actions")
-        if not isinstance(actions, list):
-            raise ValueError("Action plan must contain an 'actions' list.")
-        if not actions:
-            raise ValueError("Action plan cannot be empty.")
-
-        normalized_actions = []
-        for item in actions:
-            if not isinstance(item, dict):
-                raise ValueError("Each action must be an object.")
-            if set(item) - {"action", "target", "params"}:
-                raise ValueError("Action contains unsupported fields.")
-
-            action_name = item.get("action")
-            if action_name not in self.VALID_ACTIONS:
-                raise ValueError(f"Unsupported action: {action_name}")
-
-            target = item.get("target")
-            if not isinstance(target, str) or not target.strip():
-                raise ValueError(f"Missing target for action: {action_name}")
-
-            params = item.get("params", {})
-            if not isinstance(params, dict):
-                raise ValueError(f"Params for action {action_name} must be a dictionary.")
-
-            normalized_actions.append(
-                {
-                    "action": action_name,
-                    "target": target.strip(),
-                    "params": params,
-                }
-            )
-
-        return {"actions": normalized_actions}
+        return validate_plan(payload)
 
     def plan(self, command: str, context: Optional[Any] = None) -> Dict[str, Any]:
         if not isinstance(command, str) or not command.strip():

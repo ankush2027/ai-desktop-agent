@@ -1,12 +1,13 @@
-import os
+import platform
 import re
-from pathlib import Path
 from typing import Any, Dict, List
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 from config import APPS, BROWSERS, FOLDERS, SITE_ALIASES, SITES
 from ai.errors import AIPlanningError
+from ai.plan_schema import ALLOWED_ACTIONS, validate_plan
 from actions.email import compose_url
+from actions.local_paths import resolve_local_target
 
 
 class ActionPolicyError(AIPlanningError):
@@ -14,103 +15,97 @@ class ActionPolicyError(AIPlanningError):
 
 
 class ActionPolicy:
-    """Allow only narrowly scoped, non-destructive AI actions."""
+    """Validate the entire plan and return the exact targets to execute."""
 
-    ALLOWED_ACTIONS = {"open", "search", "list", "help", "draft_email"}
+    ALLOWED_ACTIONS = ALLOWED_ACTIONS
     _UNSAFE_TARGET = re.compile(r"[\x00-\x1f\x7f;&|`$]")
 
-    def validate(self, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Validate a schema-checked plan before it reaches the executor."""
-        for action in actions:
-            action_name = action["action"]
-            if action_name == "draft_email":
-                if set(action) != {"action", "target", "params"}:
-                    raise ActionPolicyError("Email action contains unsupported fields.")
-                try:
-                    compose_url(action["target"], action["params"])
-                except ValueError as exc:
-                    raise ActionPolicyError(str(exc)) from None
-                continue
-            if action_name == "delete":
-                raise ActionPolicyError("AI delete actions are not allowed.")
-            if action_name not in self.ALLOWED_ACTIONS:
-                raise ActionPolicyError(
-                    f"AI action '{action_name}' is not allowed by safety policy."
-                )
-
-            self._validate_target(action_name, action["target"])
-            self._validate_params(action_name, action["params"])
-
-        return actions
-
-    def _validate_target(self, action_name: str, target: str) -> None:
-        if self._UNSAFE_TARGET.search(target):
-            raise ActionPolicyError("AI action target contains unsafe characters.")
-
-        if action_name == "open":
-            normalized = target.strip().lower()
-            known_targets = (
-                set(SITES)
-                | set(SITE_ALIASES)
-                | set(APPS)
-                | set(FOLDERS)
-                | set(BROWSERS["available"])
-            )
-            if normalized in known_targets:
-                return
-
-            path = Path(os.path.expanduser(target))
-            if re.fullmatch(r"[a-z0-9][a-z0-9._-]*", normalized):
-                return
-            try:
-                resolved = path.resolve(strict=True)
-            except OSError as exc:
-                raise ActionPolicyError("AI open target is not supported.") from exc
-
-            home = Path.home().resolve()
-            if resolved != home and home not in resolved.parents:
-                raise ActionPolicyError("AI open target is outside the allowed path.")
-            return
-
-        if action_name == "list":
-            supported_targets = {"sites", "apps", "folders"} | set(FOLDERS)
-            if target.strip().lower() not in supported_targets:
-                raise ActionPolicyError("AI list target is not supported.")
+    @staticmethod
+    def _browser_platform(browser):
+        system = platform.system()
+        if browser not in BROWSERS["available"] or system not in {"Darwin", "Windows"}:
+            raise ActionPolicyError("Browser/platform combination is not supported.")
+        if system == "Windows" and browser != "brave":
+            raise ActionPolicyError("Browser is not supported on Windows.")
 
     @staticmethod
-    def _validate_params(action_name: str, params: Dict[str, Any]) -> None:
-        allowed_params = {
-            "open": {"browser", "mode", "theme", "url"},
-            "search": {"engine", "query"},
-            "list": set(),
-            "help": set(),
-        }[action_name]
-        unexpected = set(params) - allowed_params
-        if unexpected:
-            raise ActionPolicyError("AI action contains unsupported parameters.")
+    def _macos():
+        if platform.system() != "Darwin":
+            raise ActionPolicyError("This open capability is supported only on macOS.")
 
-        for key in allowed_params & set(params):
-            if not isinstance(params[key], str):
-                raise ActionPolicyError(f"AI parameter '{key}' must be a string.")
-            if ActionPolicy._UNSAFE_TARGET.search(params[key]):
-                raise ActionPolicyError(
-                    f"AI parameter '{key}' contains unsafe characters."
-                )
-            if action_name == "search" and key == "engine":
-                if params[key].lower() not in {"google", "youtube"}:
-                    raise ActionPolicyError("AI search engine is not supported.")
-            if action_name == "search" and key == "query" and not params[key].strip():
-                raise ActionPolicyError("AI search query must not be empty.")
-            if action_name == "open" and key == "url":
-                parsed = urlparse(params[key])
-                if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-                    raise ActionPolicyError("AI open URL is not supported.")
-            if action_name == "open" and key == "browser":
-                if params[key].lower() not in BROWSERS["available"]:
-                    raise ActionPolicyError("AI browser parameter is not supported.")
-            if action_name == "open" and key == "theme":
-                if params[key].lower() not in {"dark", "light", "system"}:
-                    raise ActionPolicyError("AI theme parameter is not supported.")
-            if action_name == "open" and key == "mode":
-                if params[key].lower() not in {"dark", "light", "system"}:
-                    raise ActionPolicyError("AI mode parameter is not supported.")
+    @staticmethod
+    def _site_url(url):
+        try:
+            parsed = urlsplit(url)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.query or parsed.fragment:
+                raise ValueError
+            # URLs are only navigation to configured home destinations. Workflow
+            # queries/content must go through search or draft_email instead.
+            for configured in SITES.values():
+                site = urlsplit(configured)
+                if (parsed.scheme, parsed.netloc.lower(), parsed.path.rstrip("/")) == (
+                    site.scheme, site.netloc.lower(), site.path.rstrip("/"),
+                ):
+                    return
+        except ValueError:
+            pass
+        raise ActionPolicyError("AI open URL must be a configured site home destination.")
+
+    def validate(self, actions: List[Dict[str, Any]], *, preferred_browser=None) -> List[Dict[str, Any]]:
+        try:
+            validated = validate_plan({"actions": actions})["actions"]
+        except AIPlanningError:
+            raise ActionPolicyError("AI action schema is not supported.") from None
+        preferred = preferred_browser or BROWSERS["preferred"]
+        for item in validated:
+            action, target, params = item["action"], item["target"], item["params"]
+            if action == "draft_email":
+                try:
+                    compose_url(target, params)
+                except ValueError as exc:
+                    raise ActionPolicyError(str(exc)) from None
+                self._browser_platform(preferred)
+                continue
+            if self._UNSAFE_TARGET.search(target) or any(self._UNSAFE_TARGET.search(value) for value in params.values()):
+                raise ActionPolicyError("AI action contains unsafe characters.")
+            allowed = {"open": {"url"}, "search": {"engine", "query"}, "list": set(), "help": set()}[action]
+            if set(params) - allowed:
+                raise ActionPolicyError("AI action contains unsupported parameters.")
+            if action == "open":
+                normalized = target.lower()
+                if normalized in BROWSERS["available"]:
+                    self._browser_platform(normalized)
+                    if "url" in params:
+                        self._site_url(params["url"])
+                    item["target"] = normalized
+                else:
+                    if params:
+                        raise ActionPolicyError("Only browser targets accept an open URL.")
+                    if normalized in SITES or normalized in SITE_ALIASES:
+                        site = SITE_ALIASES.get(normalized, normalized)
+                        self._site_url(SITES[site])
+                        item["target"] = normalized
+                    elif normalized in APPS:
+                        self._macos()
+                        item["target"] = normalized
+                    else:
+                        self._macos()
+                        try:
+                            # Folder aliases also undergo containment and type checks.
+                            local = FOLDERS[normalized] if normalized in FOLDERS else target
+                            item["target"] = str(resolve_local_target(local))
+                        except ValueError as exc:
+                            raise ActionPolicyError(str(exc)) from None
+            elif action == "search":
+                engine = params.get("engine", "google").lower()
+                if engine not in {"google", "youtube"} or not params.get("query", target).strip():
+                    raise ActionPolicyError("AI search parameters are not supported.")
+                if engine == "youtube":
+                    self._browser_platform(preferred)
+            elif action == "list":
+                if target.lower() not in {"sites", "apps", "folders"}:
+                    raise ActionPolicyError("AI list target is not supported.")
+                item["target"] = target.lower()
+            elif target.lower() != "help":
+                raise ActionPolicyError("AI help target is not supported.")
+        return validated

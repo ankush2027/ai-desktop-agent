@@ -6,10 +6,11 @@ if __name__ == "__main__":
 
 
 import io
+import pytest
 from contextlib import redirect_stdout
 
 import main
-from ai.errors import AIProviderError
+from ai.errors import AIProviderError, AIPlanningError
 from ai.action_policy import ActionPolicyError
 from ai.orchestrator import process_natural_language_command
 from context import ContextEngine
@@ -63,7 +64,7 @@ def test_ai_plan_generation_is_passed_to_execution():
 
     plan = {
         "actions": [
-            {"action": "open", "target": "chrome", "params": {}},
+            {"action": "open", "target": "brave", "params": {}},
             {"action": "search", "target": "Python FastAPI", "params": {}},
         ]
     }
@@ -120,7 +121,7 @@ def test_browser_preference_plan_passes_policy():
             {
                 "action": "open",
                 "target": "brave",
-                "params": {"browser": "brave"},
+                "params": {},
             }
         ]
     }
@@ -137,7 +138,7 @@ def test_browser_preference_plan_passes_policy():
     assert executed == plan["actions"]
 
 
-def test_preferred_browser_mode_plan_passes_policy_and_executes():
+def test_preferred_browser_mode_plan_is_rejected_without_execution():
     plan = {
         "actions": [
             {
@@ -149,18 +150,16 @@ def test_preferred_browser_mode_plan_passes_policy_and_executes():
     }
     executed = []
 
-    actions = process_natural_language_command(
-        "Open my preferred browser",
-        executor_func=executed.append,
-        brain=FakeBrain(plan),
-        context_engine=FakeContextEngine(),
-    )
+    with pytest.raises(ActionPolicyError):
+        process_natural_language_command(
+            "Open YouTube in my preferred browser",
+            executor_func=executed.append,
+            brain=FakeBrain(plan),
+            context_engine=FakeContextEngine(),
+        )
+    assert executed == []
 
-    assert actions == plan["actions"]
-    assert executed == plan["actions"]
-
-
-def test_realistic_youtube_search_plan_passes_policy_and_executes():
+def test_realistic_youtube_search_plan_is_rejected_without_execution():
     plan = {
         "actions": [
             {
@@ -175,16 +174,14 @@ def test_realistic_youtube_search_plan_passes_policy_and_executes():
     }
     executed = []
 
-    actions = process_natural_language_command(
-        "Open YouTube and search for Python",
-        executor_func=executed.append,
-        brain=FakeBrain(plan),
-        context_engine=FakeContextEngine(),
-    )
-
-    assert actions == plan["actions"]
-    assert executed == plan["actions"]
-
+    with pytest.raises(ActionPolicyError):
+        process_natural_language_command(
+            "Open YouTube in my preferred browser",
+            executor_func=executed.append,
+            brain=FakeBrain(plan),
+            context_engine=FakeContextEngine(),
+        )
+    assert executed == []
 
 def test_multiple_actions_are_dispatched_in_order():
     calls = []
@@ -194,9 +191,9 @@ def test_multiple_actions_are_dispatched_in_order():
 
     plan = {
         "actions": [
-            {"action": "open", "target": "chrome", "params": {}},
+            {"action": "open", "target": "brave", "params": {}},
             {"action": "search", "target": "Python", "params": {}},
-            {"action": "list", "target": "desktop", "params": {}},
+            {"action": "list", "target": "folders", "params": {}},
         ]
     }
 
@@ -267,7 +264,7 @@ def test_policy_failure_executes_zero_actions():
             context_engine=FakeContextEngine(),
         )
         assert False, "Expected ActionPolicyError"
-    except ActionPolicyError:
+    except AIPlanningError:
         pass
 
     assert calls == []

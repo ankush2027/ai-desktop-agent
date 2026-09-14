@@ -21,7 +21,7 @@ def test_safe_open_plan_is_allowed():
     assert ActionPolicy().validate(actions) == actions
 
 
-def test_browser_aware_open_plan_is_allowed():
+def test_browser_aware_open_plan_with_ignored_params_is_rejected():
     actions = [
         {
             "action": "open",
@@ -37,10 +37,10 @@ def test_browser_aware_open_plan_is_allowed():
             "params": {"browser": "brave"},
         },
     ]
-    assert ActionPolicy().validate(actions) == actions
+    assert_policy_rejects(actions)
 
 
-def test_realistic_youtube_search_plan_is_allowed():
+def test_realistic_youtube_search_plan_with_ignored_params_is_rejected():
     actions = [
         {
             "action": "open",
@@ -51,10 +51,10 @@ def test_realistic_youtube_search_plan_is_allowed():
             },
         }
     ]
-    assert ActionPolicy().validate(actions) == actions
+    assert_policy_rejects(actions)
 
 
-def test_realistic_preferred_browser_plan_is_allowed():
+def test_realistic_preferred_browser_plan_with_ignored_params_is_rejected():
     actions = [
         {
             "action": "open",
@@ -62,7 +62,7 @@ def test_realistic_preferred_browser_plan_is_allowed():
             "params": {"mode": "dark"},
         }
     ]
-    assert ActionPolicy().validate(actions) == actions
+    assert_policy_rejects(actions)
 
 
 def test_safe_search_plan_is_allowed():

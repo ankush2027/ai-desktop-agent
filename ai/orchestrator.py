@@ -7,6 +7,7 @@ from memory import MemoryManager
 from ai.errors import AIPlanningError, AIServiceError
 from ai.action_policy import ActionPolicy, ActionPolicyError
 from ai.task_execution import execute_task
+from ai.plan_schema import validate_plan
 
 
 class AIOrchestrator:
@@ -31,35 +32,8 @@ class AIOrchestrator:
             query=command,
         )
 
-    def validate_plan(self, plan: Dict[str, Any]) -> List[Dict[str, Any]]:
-        if not isinstance(plan, dict):
-            raise ValueError("AI plan must be a dictionary.")
-        if set(plan) != {"actions"}:
-            raise ValueError("AI plan contains unsupported fields.")
-
-        actions = plan.get("actions")
-        if not isinstance(actions, list):
-            raise ValueError("AI plan must contain an 'actions' list.")
-
-        if not actions:
-            raise ValueError("AI plan cannot be empty.")
-
-        validated = []
-        for item in actions:
-            if not isinstance(item, dict):
-                raise ValueError("Each action in the AI plan must be an object.")
-            if set(item) - {"action", "target", "params"}:
-                raise ValueError("AI action contains unsupported fields.")
-            if not isinstance(item.get("action"), str) or not item["action"].strip():
-                raise ValueError("Each AI action must contain a valid 'action' string.")
-            if not isinstance(item.get("target"), str) or not item["target"].strip():
-                raise ValueError(f"Action '{item.get('action')}' is missing a valid 'target'.")
-            params = item.get("params", {})
-            if not isinstance(params, dict):
-                raise ValueError(f"Action '{item.get('action')}' has invalid params.")
-            validated.append({"action": item["action"].strip(), "target": item["target"].strip(), "params": params})
-
-        return validated
+    def validate_plan(self, plan):
+        return validate_plan(plan)["actions"]
 
     def handle_command(self, command: str) -> List[Dict[str, Any]]:
         print("[AI] Received natural-language command: [content omitted]")
@@ -70,7 +44,9 @@ class AIOrchestrator:
         try:
             plan = self.brain.plan(command, context)
             validated_actions = self.validate_plan(plan)
-            validated_actions = self.action_policy.validate(validated_actions)
+            context_data = context.to_dict() if hasattr(context, "to_dict") else context
+            preferred = (context_data or {}).get("system_context", {}).get("browsers", {}).get("preferred")
+            validated_actions = self.action_policy.validate(validated_actions, preferred_browser=preferred)
             for action in validated_actions:
                 if action["action"] == "draft_email":
                     if not re.search(r"\b(?:draft|compose|prepare)\b", command, re.IGNORECASE):

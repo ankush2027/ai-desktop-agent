@@ -1,26 +1,27 @@
-import os
-import subprocess
 from actions.folders import open_folder
 from config import BROWSERS, SITE_ALIASES, SITES, APPS ,FOLDERS
 from actions.browser import open_browser, open_site
 from actions.apps import open_app
+from actions.local_paths import open_local_target
 
 def open_target(target="", params=None):
-    if target in SITES or target in SITE_ALIASES:
-        open_site(target)
+    params = params or {}
+    normalized = target.lower()
+    supported = {"context", "url"} if normalized in BROWSERS["available"] else {"context"}
+    if set(params) - supported:
+        raise ValueError("Open action contains unsupported parameters.")
+    if normalized in SITES or normalized in SITE_ALIASES:
+        open_site(normalized)
 
-    elif target in APPS:
-        open_app(target)
+    elif normalized in APPS:
+        open_app(normalized)
 
-    elif target in FOLDERS:
-        open_folder(target)
+    elif normalized in FOLDERS:
+        open_folder(normalized)
 
-    elif target in BROWSERS["available"]:
+    elif normalized in BROWSERS["available"]:
         url = params.get("url") if params else None
-        open_browser(target, url)
-
-    elif os.path.exists(target):
-        subprocess.run(["open", target])
+        open_browser(normalized, url)
 
     else:
-        print(f"'{target}' is not a supported website, folder, application or file.")
+        open_local_target(target)
