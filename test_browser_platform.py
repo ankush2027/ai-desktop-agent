@@ -1,5 +1,12 @@
 """Platform boundary tests; all process launches and install checks are mocked."""
 
+# Direct script runs must enter pytest before importing application singletons.
+if __name__ == "__main__":
+    import sys
+    import pytest
+    raise SystemExit(pytest.main([__file__, *sys.argv[1:]]))
+
+
 import os
 import subprocess
 from unittest.mock import patch

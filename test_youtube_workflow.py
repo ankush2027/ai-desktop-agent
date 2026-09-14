@@ -1,5 +1,12 @@
 """HP8 contract and integration tests; browser operations are always mocked."""
 
+# Direct script runs must enter pytest before importing application singletons.
+if __name__ == "__main__":
+    import sys
+    import pytest
+    raise SystemExit(pytest.main([__file__, *sys.argv[1:]]))
+
+
 import json
 import subprocess
 from unittest.mock import patch

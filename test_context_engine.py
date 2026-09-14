@@ -1,5 +1,12 @@
 """Tests for the Context Engine."""
 
+# Direct script runs must enter pytest before importing application singletons.
+if __name__ == "__main__":
+    import sys
+    import pytest
+    raise SystemExit(pytest.main([__file__, *sys.argv[1:]]))
+
+
 from datetime import datetime, timedelta
 
 from memory import Memory, MemoryManager
@@ -189,11 +196,3 @@ def test_structured_context_output():
     assert "relevant_memories" in result
     assert "summary" in result
     assert result["relevant_memories"][0]["content"] == "User prefers dark mode"
-
-
-if __name__ == "__main__":
-    test_runtime_information_included()
-    test_memories_are_included_via_memory_manager()
-    test_context_engine_uses_memory_manager_not_store_directly()
-    test_structured_context_output()
-    print("Context Engine tests passed.")

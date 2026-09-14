@@ -1,3 +1,10 @@
+# Direct script runs must enter pytest before importing application singletons.
+if __name__ == "__main__":
+    import sys
+    import pytest
+    raise SystemExit(pytest.main([__file__, *sys.argv[1:]]))
+
+
 import io
 import sqlite3
 from contextlib import redirect_stdout

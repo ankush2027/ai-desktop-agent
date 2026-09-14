@@ -1,3 +1,10 @@
+# Direct script runs must enter pytest before importing application singletons.
+if __name__ == "__main__":
+    import sys
+    import pytest
+    raise SystemExit(pytest.main([__file__, *sys.argv[1:]]))
+
+
 from ai.task_execution import StepStatus, TaskStatus, execute_task
 from ai.errors import TaskExecutionError
 

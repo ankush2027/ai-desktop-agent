@@ -1,3 +1,10 @@
+# Direct script runs must enter pytest before importing application singletons.
+if __name__ == "__main__":
+    import sys
+    import pytest
+    raise SystemExit(pytest.main([__file__, *sys.argv[1:]]))
+
+
 import io
 from contextlib import redirect_stdout
 
@@ -341,12 +348,3 @@ def test_handle_command_routes_context_dependent_open_to_ai():
 
     assert calls == ["Open my preferred browser."]
     assert result == [{"action": "open", "target": "brave", "params": {}}]
-
-
-if __name__ == "__main__":
-    test_route_command_distinguishes_v1_from_ai_paths()
-    test_ai_plan_generation_is_passed_to_execution()
-    test_multiple_actions_are_dispatched_in_order()
-    test_malformed_ai_plan_is_rejected_safely()
-    test_existing_v1_execution_still_works()
-    print("AI integration tests passed.")

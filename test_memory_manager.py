@@ -6,6 +6,13 @@ Run with: python -m pytest test_memory_manager.py -v
 Or run directly: python test_memory_manager.py
 """
 
+# Direct script runs must enter pytest before importing application singletons.
+if __name__ == "__main__":
+    import sys
+    import pytest
+    raise SystemExit(pytest.main([__file__, *sys.argv[1:]]))
+
+
 from memory import Memory, MemoryStore, MemoryManager
 from datetime import datetime
 
@@ -266,8 +273,3 @@ def run_all_tests():
         import traceback
         traceback.print_exc()
         return False
-
-
-if __name__ == "__main__":
-    success = run_all_tests()
-    exit(0 if success else 1)

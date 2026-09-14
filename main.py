@@ -3,7 +3,7 @@ import os
 
 from ai.orchestrator import process_natural_language_command
 from ai.errors import AIServiceError
-from parser import parse_command
+from parser import FILE_ACTIONS, SPECIAL_COMMANDS, is_file_command, parse_command
 from executor import execute
 from memory import MemoryManager
 from config import APPS, BROWSERS, FOLDERS, SITE_ALIASES, SITES
@@ -101,6 +101,18 @@ def route_command(command):
     if memory_query:
         return "memory_retrieval", [memory_query]
 
+    # File arguments may contain natural-language markers such as 'please'.
+    # Invalid explicit file syntax must not be reinterpreted by the model.
+    if is_file_command(command):
+        parsed = parse_command(command)
+        if parsed and all(
+            item["action"] in FILE_ACTIONS | SPECIAL_COMMANDS
+            or (item["action"] == "open" and item["target"].lower().startswith(("file ", "folder ")))
+            for item in parsed
+        ):
+            return "v1", parsed
+        return "invalid", None
+
     natural_language_markers = (
         "please",
         "can you",
@@ -139,6 +151,10 @@ def route_command(command):
 
 def handle_command(command):
     route, parsed = route_command(command)
+
+    if route == "invalid":
+        print("Invalid file command. Quote names containing 'and' or multiword rename/copy/move operands; provide all required arguments.")
+        return []
 
     if route == "memory":
         memory = parsed[0]

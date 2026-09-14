@@ -1,3 +1,10 @@
+# Direct script runs must enter pytest before importing application singletons.
+if __name__ == "__main__":
+    import sys
+    import pytest
+    raise SystemExit(pytest.main([__file__, *sys.argv[1:]]))
+
+
 import json
 
 from ai import AIBrain
@@ -187,15 +194,3 @@ def test_real_natural_language_prompt_is_sized_and_structured_without_api_call()
     assert "The user command is: Open YouTube and search for Python." in prompt
     assert "Context:" in prompt
     assert "Return only the JSON object" in prompt
-
-
-if __name__ == "__main__":
-    test_valid_action_plan_is_accepted()
-    test_malformed_action_plan_is_rejected()
-    test_unsupported_action_is_rejected()
-    test_missing_target_is_rejected()
-    test_invalid_json_is_rejected()
-    test_json_action_plan_with_surrounding_text_is_parsed()
-    test_malformed_json_with_surrounding_text_is_rejected()
-    test_real_natural_language_prompt_is_sized_and_structured_without_api_call()
-    print("AI brain tests passed.")

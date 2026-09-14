@@ -1,5 +1,12 @@
 """Tests for open-action target resolution."""
 
+# Direct script runs must enter pytest before importing application singletons.
+if __name__ == "__main__":
+    import sys
+    import pytest
+    raise SystemExit(pytest.main([__file__, *sys.argv[1:]]))
+
+
 from unittest.mock import patch
 
 from actions.opener import open_target
@@ -61,14 +68,3 @@ def test_existing_app_opening_behavior_is_preserved():
         open_target("calculator", {})
 
     open_app.assert_called_once_with("calculator")
-
-
-if __name__ == "__main__":
-    test_brave_with_url_opens_url_in_brave()
-    test_safari_with_url_opens_url_in_safari()
-    test_browser_without_url_launches_browser()
-    test_existing_site_opening_behavior_is_preserved()
-    test_configured_sites_open_through_browser_capability()
-    test_search_uses_safe_target_without_shell_execution()
-    test_existing_app_opening_behavior_is_preserved()
-    print("Open action tests passed.")
