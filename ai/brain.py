@@ -34,9 +34,8 @@ class AIBrain:
             return str(context)
 
         runtime = context.get("runtime", {})
-        user_context = context.get("user_context", {})
+        user_context = {key: value for key, value in context.get("user_context", {}).items() if key != "raw_command"}
         system_context = context.get("system_context", {})
-        summary = context.get("summary", "")
         memories = context.get("relevant_memories", [])
 
         memory_text = "; ".join(
@@ -45,7 +44,7 @@ class AIBrain:
         )
 
         parts = [
-            f"summary: {summary}" if summary else "summary: none",
+            f"summary: {len(memories[:5])} memory entries",
             f"runtime: {runtime}",
             f"user_context: {user_context}",
             f"system_context: {system_context}",
@@ -78,6 +77,7 @@ class AIBrain:
             "theme or mode parameters, or open YouTube separately for this workflow. "
             "For email preparation use draft_email with target gmail and exactly three string params: "
             "to, subject, body. Copy only text explicitly supplied in the command; never invent "
+            "or truncate fields. Use recipient then subject then body/saying wording; quote literal field labels. Never invent "
             "addresses, contacts, subjects, greetings, signatures, or body text. Use an empty subject "
             "when unspecified and an empty to when no email address is supplied. Do not resolve contacts "
             "from memory. Preserve Unicode and body line breaks. Only compose preparation is supported. "

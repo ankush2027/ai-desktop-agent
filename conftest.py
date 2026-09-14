@@ -99,7 +99,6 @@ def isolated_resources(request, tmp_path):
         patches.setattr(logger, "LOG_FOLDER", str(tmp_path / "logs"))
         patches.setattr(logger, "LOG_FILE", str(tmp_path / "logs" / "history.log"))
         manager = MemoryManager()
-        patches.setattr(executor, "memory_manager", manager)
         patches.setattr(executor, "context_engine", ContextEngine(manager))
         try:
             yield resources

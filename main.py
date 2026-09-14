@@ -2,10 +2,11 @@ import re
 import os
 
 from ai.orchestrator import process_natural_language_command
-from ai.errors import AIServiceError
+from ai.errors import AIServiceError, AIProviderError, TaskExecutionError
 from parser import FILE_ACTIONS, SPECIAL_COMMANDS, is_file_command, parse_command
 from executor import execute
 from memory import MemoryManager
+from memory.errors import MemoryStorageError
 from config import APPS, BROWSERS, FOLDERS, SITE_ALIASES, SITES
 
 
@@ -149,7 +150,7 @@ def route_command(command):
     return "ai", None
 
 
-def handle_command(command):
+def _handle_command(command):
     route, parsed = route_command(command)
 
     if route == "invalid":
@@ -158,31 +159,27 @@ def handle_command(command):
 
     if route == "memory":
         memory = parsed[0]
-        memory_manager = MemoryManager()
-        memory_manager.add_memory(
-            content=memory["target"],
-            category="user_preference",
-            confidence=1.0,
-        )
-        print(f"Remembered: {memory['target']}")
+        with MemoryManager() as memory_manager:
+            memory_manager.add_memory(content=memory["target"], category="user_preference", confidence=1.0)
+        print("Preference remembered.")
         return parsed
 
     if route == "memory_retrieval":
         request = parsed[0]
-        memory_manager = MemoryManager()
-        if request["category"]:
-            memories = memory_manager.get_memories_by_category(request["category"])
-        elif request["query"]:
-            memories = memory_manager.search_memories(request["query"])
-        else:
-            memories = memory_manager.get_all_memories()
+        with MemoryManager() as memory_manager:
+            if request["category"]:
+                memories = memory_manager.get_memories_by_category(request["category"])
+            elif request["query"]:
+                memories = memory_manager.search_memories(request["query"])
+            else:
+                memories = memory_manager.get_all_memories()
         memories = _unique_memories(memories)
 
         if memories:
             for memory in memories:
                 print(f"I remember: {memory.content}.")
         elif request["query"]:
-            print(f"I don't remember anything about {request['query']}.")
+            print("No matching memories found.")
         elif request["category"]:
             print("I don't have any stored preferences.")
         else:
@@ -201,13 +198,24 @@ def handle_command(command):
     try:
         return process_natural_language_command(command)
     except AIServiceError as exc:
-        print(str(exc))
+        if isinstance(exc, AIProviderError):
+            print("AI service unavailable.")
+        elif isinstance(exc, TaskExecutionError):
+            print("AI task execution failed.")
+        else:
+            print("AI planning or context validation failed.")
         return []
-    except ValueError as exc:
-        print(f"Invalid command: {exc}")
+    except ValueError:
         print("Invalid command. Type 'help' to see available commands.")
         return []
 
+
+def handle_command(command):
+    try:
+        return _handle_command(command)
+    except MemoryStorageError:
+        print("Memory storage is unavailable; no successful memory operation is reported.")
+        return []
 
 def main():
     command = input("Enter command: ").strip()

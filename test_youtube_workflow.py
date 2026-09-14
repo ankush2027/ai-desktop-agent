@@ -117,7 +117,7 @@ def test_launch_failure_stops_task_and_cli_reports_failure(manager, failure, cap
     launch.assert_called_once()
     site.assert_not_called()
     output = capsys.readouterr().out
-    assert "AI task failed at step 1" in output
+    assert "AI task execution failed" in output
     assert "Task succeeded" not in output
     assert "launch request accepted" not in output
 

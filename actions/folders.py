@@ -11,6 +11,6 @@ def open_folder(folder_name):
 
         open_local_target(real_folder_path)
 
-        print(f"Opening {real_folder_path}...")
+        print("Folder opening requested.")
     else:
         raise ValueError("Folder is not supported.")

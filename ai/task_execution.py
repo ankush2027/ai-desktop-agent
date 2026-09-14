@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 from uuid import uuid4
+from copy import deepcopy
+from logger import error_category
 
 from ai.errors import TaskExecutionError
 
@@ -38,16 +40,16 @@ def execute_task(
     executor: Callable[[Dict[str, Any]], None],
 ) -> Task:
     """Execute an already policy-approved plan sequentially as one task."""
-    task = Task(steps=[TaskStep(action=action) for action in actions])
+    task = Task(steps=[TaskStep(action=deepcopy(action)) for action in actions])
     task.status = TaskStatus.RUNNING
 
     for index, step in enumerate(task.steps, start=1):
         print(f"[AI] Executing action {index}/{len(task.steps)}")
         try:
-            executor(step.action)
+            executor(deepcopy(step.action))
         except Exception as exc:
             step.status = StepStatus.FAILED
-            step.error = str(exc)
+            step.error = error_category(exc)
             task.status = TaskStatus.FAILED
             print(f"[AI] Task failed at step {index}/{len(task.steps)}")
             raise TaskExecutionError(

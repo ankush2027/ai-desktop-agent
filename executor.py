@@ -12,9 +12,10 @@ from actions.search import search_google
 from actions.email import draft_email
 from memory import MemoryManager
 from context import ContextEngine
+from copy import deepcopy
 
-memory_manager = MemoryManager()
-context_engine = ContextEngine(memory_manager)
+
+context_engine = None  # Optional caller-owned context engine; no import-time storage.
 
 ACTION_MAP = {
     "draft_email": draft_email,
@@ -34,21 +35,23 @@ ACTION_MAP = {
 def execute(command):
     action = command.get("action")
     target = command.get("target")
-    params = command.get("params", {})
-
+    params = deepcopy(command.get("params", {}))
     handler = ACTION_MAP.get(action)
-
-    if handler:
-        log_action(action, target)
-
-        query = target or action or ""
-        context = context_engine.build_context(
-            user_context={"action": action, "target": target, "params": params},
-            system_context={"command": command},
-            query=query,
-        )
-        params["context"] = context.to_dict()
+    if handler is None:
+        raise ValueError("Unsupported action.")
+    log_action(action, target)
+    try:
+        # Only preference-dependent workflows require storage during execution.
+        if action == "draft_email" or (action == "search" and params.get("engine", "google").lower() == "youtube"):
+            if context_engine is not None:
+                context = context_engine.build_context(query=target or action)
+            else:
+                with MemoryManager() as manager:
+                    context = ContextEngine(manager).build_context(query=target or action)
+            params["context"] = deepcopy(context.to_dict())
         if handler(target, params) is False:
             raise RuntimeError("Action reported failure.")
-    else:
-        raise ValueError("Unsupported action.")
+    except Exception as exc:
+        log_action(action, target, "failed", error=exc)
+        raise
+    log_action(action, target, "succeeded")

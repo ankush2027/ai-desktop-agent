@@ -27,7 +27,18 @@ class MemoryManager:
         Args:
             store: The MemoryStore instance to use. Creates a new one if not provided.
         """
-        self.store = store or MemoryStore()
+        self._owns_store = store is None
+        self.store = store if store is not None else MemoryStore()
+
+    def close(self):
+        if self._owns_store:
+            self.store.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
     
     def add_memory(
         self,
@@ -48,6 +59,10 @@ class MemoryManager:
         Returns:
             The unique ID of the added memory
         """
+        with self.store.transaction():
+            return self._add_memory(content, category, confidence, timestamp)
+
+    def _add_memory(self, content, category, confidence, timestamp):
         existing_memories = self.search_memories(content, category=category)
         for existing in existing_memories:
             if existing.content == content:

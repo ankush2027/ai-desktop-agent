@@ -106,10 +106,10 @@ def test_ai_logging_reports_plan_and_execution_progress():
     assert "[AI] Building context" in output
     assert "[AI] Calling AIBrain" in output
     assert "[AI] Received validated action plan with 2 action(s)" in output
-    assert "[AI] Action 1: action=open, target=youtube, params={}" in output
+    assert "[AI] Action 1: action=open, target=youtube, params=[redacted]" in output
     assert (
-        "[AI] Action 2: action=search, target=Python, "
-        "params={'engine': 'google', 'query': 'Python'}"
+        "[AI] Action 2: action=search, target=search, "
+        "params=[redacted]"
     ) in output
     assert "[AI] Executing action 1/2" in output
     assert "[AI] Executing action 2/2" in output

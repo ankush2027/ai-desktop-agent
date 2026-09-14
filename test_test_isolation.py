@@ -24,8 +24,7 @@ from memory import MemoryManager, MemoryStore
 def test_collection_and_default_stores_are_isolated(isolated_resources):
     manager = MemoryManager()
     assert manager.store.db_path == isolated_resources.default_db
-    assert executor.memory_manager.store.db_path == isolated_resources.default_db
-    assert executor.context_engine.memory_manager is executor.memory_manager
+    assert executor.context_engine.memory_manager.store.db_path == isolated_resources.default_db
     assert manager.get_memory_count() == 0
     assert isolated_resources.permits(logger.LOG_FILE)
 

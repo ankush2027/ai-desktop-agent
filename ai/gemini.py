@@ -8,6 +8,7 @@ from google.genai._gaos.lib import compat_errors
 import httpx
 
 from ai.errors import AIProviderError
+from logger import error_category
 
 
 class GeminiProviderError(AIProviderError):
@@ -46,9 +47,8 @@ class GeminiProvider:
             compat_errors.APIError,
             compat_errors.NoResponseError,
         ) as exc:
-            reason = str(exc).splitlines()[0][:200] or exc.__class__.__name__
-            print(f"[AI] Gemini request failed: {reason}")
-            raise GeminiProviderError("Gemini request failed.") from exc
+            print(f"[AI] Gemini request failed: category={error_category(exc)}")
+            raise GeminiProviderError("Gemini request failed.") from None
 
         if hasattr(response, "output_text") and response.output_text:
             print("[AI] Gemini response received")
