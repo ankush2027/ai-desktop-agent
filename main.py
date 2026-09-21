@@ -6,6 +6,9 @@ from ai.errors import AIServiceError, AIProviderError, TaskExecutionError
 from parser import FILE_ACTIONS, SPECIAL_COMMANDS, is_file_command, parse_command
 from executor import execute
 from memory import MemoryManager
+from memory.episodes import ContextStateError
+from context import ContextEngine
+from context.events import parse_context_event
 from memory.errors import MemoryStorageError
 from config import APPS, BROWSERS, FOLDERS, SITE_ALIASES, SITES
 
@@ -94,6 +97,10 @@ def route_command(command):
     """Return whether this command is handled by the V1 parser or the AI path."""
     normalized = command.strip().lower()
 
+    event = parse_context_event(command)
+    if event is not None:
+        return "context", [event]
+
     remembered = parse_remember_command(command)
     if remembered:
         return "memory", [remembered]
@@ -152,6 +159,12 @@ def route_command(command):
 
 def _handle_command(command):
     route, parsed = route_command(command)
+
+    if route == "context":
+        with MemoryManager() as manager:
+            result = ContextEngine(manager).handle_event(parsed[0])
+        print(result.message)
+        return [result.to_dict()]
 
     if route == "invalid":
         print("Invalid file command. Quote names containing 'and' or multiword rename/copy/move operands; provide all required arguments.")
@@ -213,6 +226,9 @@ def _handle_command(command):
 def handle_command(command):
     try:
         return _handle_command(command)
+    except ContextStateError as exc:
+        print(str(exc))
+        return []
     except MemoryStorageError:
         print("Memory storage is unavailable; no successful memory operation is reported.")
         return []

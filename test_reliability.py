@@ -233,9 +233,9 @@ def test_quoted_body_may_contain_literal_field_labels():
 
 def test_provider_and_task_diagnostics_do_not_echo_errors(capsys):
     class Client:
-        class interactions:
+        class models:
             @staticmethod
-            def create(**kwargs):
+            def generate_content(**kwargs):
                 raise httpx.ConnectError("private@example.com https://private.example/?body=secret")
     with patch("ai.gemini.genai.Client", return_value=Client()):
         with pytest.raises(GeminiProviderError):

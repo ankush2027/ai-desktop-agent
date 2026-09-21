@@ -1,0 +1,5 @@
+# Runtime dependencies; constraints include the tested transitive versions.
+-c constraints.txt
+google-genai==2.24.0
+python-dotenv==1.2.3
+httpx==0.28.1

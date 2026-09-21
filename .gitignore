@@ -1,6 +1,13 @@
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+env/
+.venv-*/
 logs/history.log
 memory.db
+memory.db-*
 .env
 .env.*
+!.env.example

@@ -4,7 +4,7 @@ from typing import Optional
 from dotenv import find_dotenv, load_dotenv
 from google import genai
 from google.genai import errors as genai_errors
-from google.genai._gaos.lib import compat_errors
+from google.genai import types
 import httpx
 
 from ai.errors import AIProviderError
@@ -24,39 +24,37 @@ class GeminiProvider:
     def __init__(self, api_key: Optional[str] = None, model_name: Optional[str] = None):
         load_dotenv(find_dotenv(usecwd=True), override=False)
 
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = (api_key if api_key is not None else os.getenv("GEMINI_API_KEY", "")).strip()
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY environment variable is not set.")
 
-        self.model_name = model_name or os.getenv("GEMINI_MODEL") or self.DEFAULT_MODEL
+        self.model_name = (model_name or os.getenv("GEMINI_MODEL") or "").strip() or self.DEFAULT_MODEL
         self.client = genai.Client(api_key=self.api_key)
 
     def generate_text(self, prompt: str) -> str:
         """Send a simple prompt to Gemini and return the model text output."""
         print("[AI] Sending request to Gemini")
         try:
-            response = self.client.interactions.create(
+            response = self.client.models.generate_content(
                 model=self.model_name,
-                input=prompt,
-                timeout=self.REQUEST_TIMEOUT_SECONDS,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    http_options=types.HttpOptions(
+                        timeout=int(self.REQUEST_TIMEOUT_SECONDS * 1000),
+                        retry_options=types.HttpRetryOptions(attempts=1),
+                    ),
+                ),
             )
         except (
             httpx.TimeoutException,
             httpx.RequestError,
             genai_errors.APIError,
-            compat_errors.APIError,
-            compat_errors.NoResponseError,
         ) as exc:
             print(f"[AI] Gemini request failed: category={error_category(exc)}")
             raise GeminiProviderError("Gemini request failed.") from None
 
-        if hasattr(response, "output_text") and response.output_text:
-            print("[AI] Gemini response received")
-            return response.output_text
-
-        if hasattr(response, "text") and response.text:
-            print("[AI] Gemini response received")
-            return response.text
-
+        text = response.text
+        if not isinstance(text, str) or not text.strip():
+            raise GeminiProviderError("Gemini returned no text.")
         print("[AI] Gemini response received")
-        return str(response)
+        return text

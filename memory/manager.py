@@ -1,4 +1,7 @@
 import re
+import json
+from memory.episodes import (ContextEpisode, ContextTask, ContextNote,
+                             ContextStateError, require_text, new_id, now)
 from typing import List, Optional
 from datetime import datetime
 from config import BROWSERS
@@ -16,7 +19,7 @@ class MemoryManager:
     - Updating memories
     - Deleting memories
     
-    It communicates with the Memory Store for persistence (currently in-memory).
+    It communicates with the Memory Store for persistence in SQLite.
     Other modules must not directly manipulate memories; they must use this manager.
     """
     
@@ -218,3 +221,102 @@ class MemoryManager:
                     results.append(memory)
         
         return results
+
+    def context_transaction(self):
+        """Keep a context event atomic without exposing SQLite to ContextEngine."""
+        return self.store.transaction()
+
+    def get_active_episode(self):
+        return self.store.get_active_episode()
+
+    def get_episode(self, episode_id):
+        return self.store.get_episode(episode_id)
+
+    def get_latest_episode(self, name=None):
+        return self.store.get_latest_episode(name)
+
+    def start_episode(self, name=None):
+        """Arrival is idempotent; an explicit name refines the active episode."""
+        if name is not None:
+            name = require_text(name)
+        with self.context_transaction():
+            episode = self.get_active_episode()
+            if episode is None:
+                episode = ContextEpisode(new_id(), name or "current_place", now())
+            elif name is not None:
+                episode.name = name
+            return self.store.save_episode(episode)
+
+    def _require_active_episode(self):
+        episode = self.get_active_episode()
+        if episode is None:
+            raise ContextStateError("No active context. Establish a context first.")
+        return episode
+
+    def update_episode(self, *, name=None, memory_ids=None, metadata=None):
+        """Update only explicitly supplied context; metadata is a JSON object."""
+        with self.context_transaction():
+            episode = self._require_active_episode()
+            if name is not None:
+                episode.name = require_text(name)
+            if memory_ids is not None:
+                if (not isinstance(memory_ids, list)
+                        or any(not isinstance(item, str) or self.get_memory(item) is None
+                               for item in memory_ids)):
+                    raise ContextStateError("Context memory references must identify existing memories.")
+                episode.memory_ids = list(dict.fromkeys(memory_ids))
+            if metadata is not None:
+                if not isinstance(metadata, dict):
+                    raise ContextStateError("Context metadata must be a JSON object.")
+                try:
+                    episode.metadata = json.loads(json.dumps(metadata, allow_nan=False))
+                except (ValueError, TypeError, RecursionError):
+                    raise ContextStateError("Context metadata must be a JSON object.") from None
+            return self.store.save_episode(episode)
+
+    def close_episode(self):
+        with self.context_transaction():
+            episode = self.get_active_episode()
+            if episode is None:
+                return None
+            episode.status = "closed"
+            episode.ended_at = now()
+            return self.store.save_episode(episode)
+
+    def add_context_task(self, description, *, kind="task", trigger="context_exit"):
+        description = require_text(description)
+        if kind not in {"task", "intention"} or trigger not in {"context_exit", "none"}:
+            raise ContextStateError("Unsupported contextual task kind or trigger.")
+        with self.context_transaction():
+            episode = self._require_active_episode()
+            for task in self.get_context_tasks(episode.id, pending_only=True):
+                if (task.description, task.kind, task.trigger) == (description, kind, trigger):
+                    return task
+            return self.store.add_context_task(ContextTask(
+                new_id(), episode.id, description, now(), kind=kind, trigger=trigger))
+
+    def get_context_tasks(self, episode_id, *, pending_only=False):
+        return self.store.get_context_tasks(episode_id, pending_only)
+
+    def complete_context_task(self, task_id):
+        # Completing historical tasks is allowed, but never reopens an episode.
+        task = self.store.complete_context_task(require_text(task_id), now())
+        if task is None:
+            raise ContextStateError("Contextual task not found.")
+        return task
+
+    def add_context_note(self, content, *, category="contextual"):
+        content = require_text(content)
+        if category not in {"contextual", "temporary"}:
+            raise ContextStateError("Unsupported context note category.")
+        with self.context_transaction():
+            episode = self._require_active_episode()
+            return self.store.add_context_note(ContextNote(
+                new_id(), episode.id, content, category, now()))
+
+    def get_context_notes(self, episode_id):
+        return self.store.get_context_notes(episode_id)
+
+    def get_episodes(self, name=None):
+        """Candidate episodes for deterministic continuity selection."""
+        return self.store.get_episodes(name)
