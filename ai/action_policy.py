@@ -1,4 +1,3 @@
-import platform
 import re
 from typing import Any, Dict, List
 from urllib.parse import urlsplit
@@ -8,6 +7,7 @@ from ai.errors import AIPlanningError
 from ai.plan_schema import ALLOWED_ACTIONS, validate_plan
 from actions.email import compose_url
 from actions.local_paths import resolve_local_target
+from actions.platforms import get_platform
 
 
 class ActionPolicyError(AIPlanningError):
@@ -21,17 +21,18 @@ class ActionPolicy:
     _UNSAFE_TARGET = re.compile(r"[\x00-\x1f\x7f;&|`$]")
 
     @staticmethod
-    def _browser_platform(browser):
-        system = platform.system()
-        if browser not in BROWSERS["available"] or system not in {"Darwin", "Windows"}:
-            raise ActionPolicyError("Browser/platform combination is not supported.")
-        if system == "Windows" and browser != "brave":
-            raise ActionPolicyError("Browser is not supported on Windows.")
+    def _platform():
+        try:
+            return get_platform()
+        except RuntimeError as exc:
+            raise ActionPolicyError(str(exc)) from None
 
     @staticmethod
-    def _macos():
-        if platform.system() != "Darwin":
-            raise ActionPolicyError("This open capability is supported only on macOS.")
+    def _browser_platform(browser):
+        try:
+            ActionPolicy._platform().require_browser(browser)
+        except (RuntimeError, ValueError) as exc:
+            raise ActionPolicyError(str(exc)) from None
 
     @staticmethod
     def _site_url(url):
@@ -82,14 +83,18 @@ class ActionPolicy:
                     if params:
                         raise ActionPolicyError("Only browser targets accept an open URL.")
                     if normalized in SITES or normalized in SITE_ALIASES:
+                        self._platform()
                         site = SITE_ALIASES.get(normalized, normalized)
                         self._site_url(SITES[site])
                         item["target"] = normalized
                     elif normalized in APPS:
-                        self._macos()
+                        try:
+                            self._platform().require_app(normalized)
+                        except RuntimeError as exc:
+                            raise ActionPolicyError(str(exc)) from None
                         item["target"] = normalized
                     else:
-                        self._macos()
+                        self._platform()
                         try:
                             # Folder aliases also undergo containment and type checks.
                             local = FOLDERS[normalized] if normalized in FOLDERS else target
@@ -97,6 +102,7 @@ class ActionPolicy:
                         except ValueError as exc:
                             raise ActionPolicyError(str(exc)) from None
             elif action == "search":
+                self._platform()
                 engine = params.get("engine", "google").lower()
                 if engine not in {"google", "youtube"} or not params.get("query", target).strip():
                     raise ActionPolicyError("AI search parameters are not supported.")

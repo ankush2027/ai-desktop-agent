@@ -78,16 +78,16 @@ def test_full_workflow_through_real_executor(manager, browser, app, capsys):
     def process(raw):
         return process_natural_language_command(raw, brain=AIBrain(Provider()), context_engine=engine)
 
-    with patch("actions.browser.platform.system", return_value="Darwin"), \
+    with patch("actions.platforms.platform.system", return_value="Darwin"), \
          patch.object(main, "process_natural_language_command", side_effect=process), \
          patch.object(executor, "context_engine", engine), \
          patch.object(executor, "log_action"), \
-         patch("actions.browser.subprocess.run", return_value=subprocess.CompletedProcess([], 0)) as launch:
+         patch("actions.platforms.subprocess.run", return_value=subprocess.CompletedProcess([], 0)) as launch:
         result = main.handle_command(command)
 
     assert result[0]["action"] == "search"
     launch.assert_called_once_with(
-        ["open", "-a", app, "https://www.youtube.com/results?search_query=C%2B%2B+tutorials"],
+        ["/usr/bin/open", "-a", app, "https://www.youtube.com/results?search_query=C%2B%2B+tutorials"],
         check=True,
     )
     assert "page loading is not verified" in capsys.readouterr().out
@@ -107,12 +107,12 @@ def test_launch_failure_stops_task_and_cli_reports_failure(manager, failure, cap
     def process(raw):
         return process_natural_language_command(raw, brain=Brain(), context_engine=engine)
 
-    with patch("actions.browser.platform.system", return_value="Darwin"), \
+    with patch("actions.platforms.platform.system", return_value="Darwin"), \
          patch.object(main, "process_natural_language_command", side_effect=process), \
          patch.object(executor, "context_engine", engine), \
          patch.object(executor, "log_action"), \
-         patch("actions.browser.subprocess.run", side_effect=failure) as launch, \
-         patch("actions.browser.webbrowser.open") as site:
+         patch("actions.platforms.subprocess.run", side_effect=failure) as launch, \
+         patch("actions.platforms.webbrowser.open") as site:
         assert main.handle_command("Search YouTube for Python") == []
     launch.assert_called_once()
     site.assert_not_called()
@@ -153,7 +153,7 @@ def test_default_browser_failure_is_reported():
 
 
 def test_unsupported_browser_does_not_launch():
-    with patch("actions.browser.subprocess.run") as launch:
+    with patch("actions.platforms.subprocess.run") as launch:
         with pytest.raises(ValueError):
             open_browser("terminal")
     launch.assert_not_called()

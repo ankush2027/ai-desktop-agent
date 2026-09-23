@@ -142,7 +142,7 @@ def test_exact_validated_document_reaches_fixed_viewer(mac_home):
     assert actions[0]["target"] == str(document.resolve())
     with patch("subprocess.run") as launch:
         execute_task(actions, executor.execute)
-    launch.assert_called_once_with(["open", "-a", "TextEdit", str(document.resolve())], check=True)
+    launch.assert_called_once_with(["/usr/bin/open", "-a", "TextEdit", str(document.resolve())], check=True)
 
 
 def test_path_replacement_after_validation_fails(mac_home):
@@ -162,11 +162,11 @@ def test_configured_targets_and_folder_normalization(mac_home):
         execute_task(actions, executor.execute)
     app.assert_called_once_with("calculator")
     site.assert_called_once_with("gmail")
-    launch.assert_called_once_with(["open", str(mac_home / "Desktop")], check=True)
+    launch.assert_called_once_with(["/usr/bin/open", str(mac_home / "Desktop")], check=True)
     assert ActionPolicy().validate([item(url="https://www.youtube.com")]) == [item(url="https://www.youtube.com")]
 
 
-@pytest.mark.parametrize("system,target", [("Windows", "safari"), ("Linux", "brave"), ("Windows", "calculator"), ("Linux", "calculator")])
+@pytest.mark.parametrize("system,target", [("Windows", "safari"), ("Linux", "brave"), ("Linux", "google"), ("Linux", "calculator")])
 def test_unsupported_platform_rejects_whole_plan(system, target):
     calls = []
     with patch("platform.system", return_value=system), pytest.raises(ActionPolicyError):
@@ -195,9 +195,9 @@ def test_copy_move_cli_uses_temporary_files(verb, tmp_path):
 
 
 @pytest.mark.parametrize("target", ["file notes.txt", "folder Documents"])
-def test_windows_local_open_fails_explicitly(target):
-    with patch("platform.system", return_value="Windows"), patch("subprocess.run") as launch:
-        with pytest.raises(RuntimeError, match="only on macOS"):
+def test_unsupported_os_local_open_fails_explicitly(target):
+    with patch("platform.system", return_value="Linux"), patch("subprocess.run") as launch:
+        with pytest.raises(RuntimeError, match="Supported platforms: Windows, macOS"):
             open_target(target)
     launch.assert_not_called()
 

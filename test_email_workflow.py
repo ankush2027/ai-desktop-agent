@@ -122,9 +122,9 @@ def test_real_pipeline_launch_and_private_logs(system, browser, recipient, engin
     with patch.object(main, "process_natural_language_command", side_effect=process), \
          patch.object(executor, "context_engine", engine), \
          patch("logger.LOG_FOLDER", str(tmp_path)), patch("logger.LOG_FILE", str(tmp_path / "history.log")), \
-         patch("actions.browser.platform.system", return_value=system), \
-         patch("actions.browser._windows_brave_executable", return_value="mock-brave.exe"), \
-         patch("actions.browser.subprocess.run") as run, patch("actions.browser.subprocess.Popen") as popen:
+         patch("actions.platforms.platform.system", return_value=system), \
+         patch("actions.platforms.WindowsAdapter._brave", return_value="mock-brave.exe"), \
+         patch("actions.platforms.subprocess.run") as run, patch("actions.platforms.subprocess.Popen") as popen:
         result = main.handle_command(command)
     assert result[0]["action"] == "draft_email"
     launched = run if system == "Darwin" else popen

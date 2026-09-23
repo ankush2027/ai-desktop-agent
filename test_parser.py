@@ -109,7 +109,9 @@ def test_copy_move_dispatch_keeps_existing_destination_contract(verb):
     ("create file A.txt", "A.txt"),
     ('rename file "My Report.txt" "New Report.txt"', "My Report.txt"),
 ])
-def test_cli_to_real_executor_preserves_os_arguments(command, expected):
+def test_cli_to_real_executor_preserves_os_arguments(command, expected, tmp_path):
+    if command.startswith("rename"):
+        (tmp_path / expected).write_text("temporary source")
     with patch("actions.delete_file.os.remove") as remove, \
          patch("actions.files.open", create=True) as create, \
          patch("actions.rename_file.os.rename") as rename:

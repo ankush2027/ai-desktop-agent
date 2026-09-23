@@ -14,26 +14,26 @@ from actions.search import search_google
 
 
 def test_brave_with_url_opens_url_in_brave():
-    with patch("actions.browser.platform.system", return_value="Darwin"), patch("actions.browser.subprocess.run") as run:
+    with patch("actions.platforms.platform.system", return_value="Darwin"), patch("actions.platforms.subprocess.run") as run:
         open_target("brave", {"url": "https://www.youtube.com/results?search_query=python"})
 
     run.assert_called_once_with(
-        ["open", "-a", "Brave Browser", "https://www.youtube.com/results?search_query=python"], check=True
+        ["/usr/bin/open", "-a", "Brave Browser", "https://www.youtube.com/results?search_query=python"], check=True
     )
 
 
 def test_safari_with_url_opens_url_in_safari():
-    with patch("actions.browser.platform.system", return_value="Darwin"), patch("actions.browser.subprocess.run") as run:
+    with patch("actions.platforms.platform.system", return_value="Darwin"), patch("actions.platforms.subprocess.run") as run:
         open_target("safari", {"url": "https://www.youtube.com"})
 
-    run.assert_called_once_with(["open", "-a", "Safari", "https://www.youtube.com"], check=True)
+    run.assert_called_once_with(["/usr/bin/open", "-a", "Safari", "https://www.youtube.com"], check=True)
 
 
 def test_browser_without_url_launches_browser():
-    with patch("actions.browser.platform.system", return_value="Darwin"), patch("actions.browser.subprocess.run") as run:
+    with patch("actions.platforms.platform.system", return_value="Darwin"), patch("actions.platforms.subprocess.run") as run:
         open_target("brave", {})
 
-    run.assert_called_once_with(["open", "-a", "Brave Browser"], check=True)
+    run.assert_called_once_with(["/usr/bin/open", "-a", "Brave Browser"], check=True)
 
 
 def test_existing_site_opening_behavior_is_preserved():
@@ -55,7 +55,7 @@ def test_configured_sites_open_through_browser_capability():
 
 
 def test_search_uses_safe_target_without_shell_execution():
-    with patch("actions.search.webbrowser.open") as open_browser:
+    with patch("actions.platforms.webbrowser.open") as open_browser:
         search_google("Mphasis interview questions")
 
     open_browser.assert_called_once_with(

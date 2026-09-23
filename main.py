@@ -11,6 +11,7 @@ from context import ContextEngine
 from context.events import parse_context_event
 from memory.errors import MemoryStorageError
 from config import APPS, BROWSERS, FOLDERS, SITE_ALIASES, SITES
+from actions.platforms import DesktopUnavailable
 
 
 REMEMBER_PATTERN = re.compile(r"^remember(?:\s+that)?\s+(.+?)\s*[.!?]?$", re.IGNORECASE)
@@ -203,6 +204,9 @@ def _handle_command(command):
         try:
             for cmd in parsed:
                 execute(cmd)
+        except DesktopUnavailable as exc:
+            print(str(exc))
+            return []
         except Exception:
             print("Command execution failed.")
             return []
@@ -214,7 +218,10 @@ def _handle_command(command):
         if isinstance(exc, AIProviderError):
             print("AI service unavailable.")
         elif isinstance(exc, TaskExecutionError):
-            print("AI task execution failed.")
+            if isinstance(exc.__cause__, DesktopUnavailable):
+                print(str(exc.__cause__))
+            else:
+                print("AI task execution failed.")
         else:
             print("AI planning or context validation failed.")
         return []

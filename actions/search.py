@@ -1,4 +1,4 @@
-import webbrowser
+from actions.platforms import open_default_url
 from urllib.parse import urlencode
 
 from actions.browser import open_browser
@@ -17,7 +17,6 @@ def search_google(target, params=None):
         open_browser(browsers["preferred"], url)
     elif engine == "google":
         url = "https://www.google.com/search?" + urlencode({"q": query})
-        if not webbrowser.open(url):
-            raise RuntimeError("Browser did not accept the search launch request.")
+        open_default_url(url)
     else:
         raise ValueError("Search engine not supported.")

@@ -12,4 +12,4 @@ def delete(target, params):
         delete_folder(target)
 
     else:
-        print("Unknown delete type.")
+        raise ValueError("Delete requires a file or folder type.")

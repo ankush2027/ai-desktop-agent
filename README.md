@@ -117,7 +117,9 @@ please search youtube for Python tutorials
 Explicit create/delete/rename/copy/move commands are deterministic local operations.
 Quote multiword operands and names containing `and`. These directly requested file
 operations can modify files; the AI allowlist is narrower than the CLI command set.
-Edit trusted `config.py` entries to match installed applications and browsers.
+`config.py` enables named applications and browsers; platform adapters contain
+their fixed launch mappings. See [CROSS_PLATFORM.md](CROSS_PLATFORM.md) for install
+locations and limitations.
 
 ## Safety and reliability
 
@@ -140,13 +142,16 @@ commands such as help, ordinary search, and configured site opening remain usabl
 | --- | --- | --- |
 | Configured sites / ordinary Google search | Default browser | Default browser |
 | Named browser, YouTube search, Gmail compose | Brave in supported install locations | Brave or Safari |
-| Configured desktop app opening | Unsupported | `open -a` |
-| Safe local document/folder opening | Unsupported | Finder / TextEdit / Preview |
+| Configured desktop app opening | Fixed supported installation paths | `/usr/bin/open -a` |
+| Safe local document/folder opening | Explorer / Notepad / Brave | Finder / TextEdit / Preview |
 | Explicit filesystem operations | Python filesystem operations | Python filesystem operations |
 
 Windows Brave discovery checks LOCALAPPDATA, PROGRAMFILES, and PROGRAMFILES(X86),
 not the current directory or arbitrary PATH executables. Safari is macOS-only.
 Linux desktop automation is not a supported target.
+WhatsApp on Windows supports only the fixed legacy desktop installation; Store-only
+installs are unsupported. Windows PDF/image opening requires Brave. See
+[CROSS_PLATFORM.md](CROSS_PLATFORM.md) for the action audit and validation scope.
 
 ## Memory, context, and privacy
 

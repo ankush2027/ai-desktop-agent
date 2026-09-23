@@ -2,9 +2,8 @@
 
 import os
 from pathlib import Path
-import platform
 import stat
-import subprocess
+from actions.platforms import get_platform
 
 TEXT_SUFFIXES = {".txt", ".md", ".csv", ".json", ".log"}
 PREVIEW_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp"}
@@ -19,9 +18,11 @@ def resolve_local_target(target):
             raise ValueError("Local open target is missing.")
         kind, target = words[0].lower(), words[1]
     path = Path(os.path.expanduser(target)).absolute()
+    if get_platform().name == "Windows" and any(":" in part for part in path.parts[1:]):
+        raise ValueError("Windows alternate data streams are not document targets.")
     try:
         # Reject links rather than trusting a later resolution of the same name.
-        if any(part.is_symlink() for part in (path, *path.parents)):
+        if any((part.is_symlink() or part.is_junction()) for part in (path, *path.parents)):
             raise ValueError("Linked open targets are not supported.")
         resolved = path.resolve(strict=True)
         home = Path.home().resolve()
@@ -36,7 +37,7 @@ def resolve_local_target(target):
         elif stat.S_ISREG(mode):
             if kind == "folder" or resolved.suffix.lower() not in TEXT_SUFFIXES | PREVIEW_SUFFIXES:
                 raise ValueError("Local file type is not supported for safe opening.")
-            if platform.system() == "Darwin" and mode & 0o111:
+            if get_platform().name == "Darwin" and mode & 0o111:
                 raise ValueError("Executable files are not safe document targets.")
         else:
             raise ValueError("Local open target must be a regular file or folder.")
@@ -46,13 +47,4 @@ def resolve_local_target(target):
 
 
 def open_local_target(target):
-    if platform.system() != "Darwin":
-        raise RuntimeError("Local file/folder opening is supported only on macOS.")
-    path = resolve_local_target(target)
-    if path.is_dir():
-        command = ["open", str(path)]
-    else:
-        # A document is opened with a fixed reader, never an executable association.
-        viewer = "TextEdit" if path.suffix.lower() in TEXT_SUFFIXES else "Preview"
-        command = ["open", "-a", viewer, str(path)]
-    subprocess.run(command, check=True)
+    get_platform().open_local(target)

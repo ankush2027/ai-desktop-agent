@@ -12,4 +12,4 @@ def rename(target, params):
         rename_folder(target, params["new_name"])
 
     else:
-        print("Unknown rename type.")
+        raise ValueError("Rename requires a file or folder type.")
