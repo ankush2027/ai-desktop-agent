@@ -1,10 +1,10 @@
 # AI Desktop Agent
 
 A local Python desktop assistant evolving toward a context-aware personal agent.
-V2 combines deterministic commands, SQLite preference memory, context-aware AI
-planning, and constrained desktop actions. The laptop is the execution interface;
-context episodes, continuity rules, voice, floating UI, and phone clients are future
-work and are not implemented in this checkpoint. No Docker or cloud service is needed.
+The core combines deterministic commands, SQLite preference memory, context
+episodes/continuity, AI planning, and constrained desktop actions. Phase 3 adds a
+compact desktop command surface with voice provider abstractions; actual speech
+recognition, TTS, and phone clients remain deferred. No Docker or cloud service is needed.
 
 ## Architecture
 
@@ -19,9 +19,12 @@ Text CLI (main.py)
        -> TaskExecution -> executor -> existing actions
 ```
 
+The optional desktop entry point reuses this same core:
+`desktop_ui.py -> InteractionController -> main.handle_command`.
+
 Reasoning, memory, schema validation, and task state are shared Python code.
 Platform operations live in `actions/`; policy also checks platform capabilities
-before allowing a plan. A future interface can reuse this pipeline without adding
+before allowing a plan. The desktop surface reuses this pipeline without adding
 another intelligence system.
 
 ```text
@@ -121,6 +124,19 @@ operations can modify files; the AI allowlist is narrower than the CLI command s
 their fixed launch mappings. See [CROSS_PLATFORM.md](CROSS_PLATFORM.md) for install
 locations and limitations.
 
+## Instant Context Interface (Phase 3)
+
+Run `.\.venv\Scripts\python.exe -B desktop_ui.py` from the repository root to
+summon the compact Tkinter surface (requires working Tcl/Tk). Type a command,
+press Enter or Send, read the result, then dismiss with Escape or the close button.
+The surface forwards text to the existing core, including context commands such
+as "I'm here", "I'm leaving", and "Continue what I was doing".
+
+Voice input/output currently consist of replaceable interfaces, unavailable-provider
+stubs, and test mocks. **Actual microphone recognition and TTS are not implemented.**
+There is no background listening or global hotkey service. See
+[VOICE_UI.md](VOICE_UI.md) for architecture, privacy, validation, and limitations.
+
 ## Safety and reliability
 
 AI fallback produces data, never executable code. `AIBrain` validates bounded JSON;
@@ -155,11 +171,13 @@ installs are unsupported. Windows PDF/image opening requires Brave. See
 
 ## Memory, context, and privacy
 
-`MemoryManager` persists memories/preferences in SQLite `memory.db` relative to the
-working directory. `ContextEngine` combines runtime context and relevant stored
-memories, including browser preference resolution. Explicit `remember` commands
-currently store user preferences; this is not an episode or general conversation
-archive. See [MEMORY_MANAGER.md](MEMORY_MANAGER.md) for the memory API.
+`MemoryManager` persists data in SQLite `memory.db` anchored to the repository
+directory, not the working directory. `ContextEngine` combines runtime context and
+relevant stored memories, including browser preferences. Existing explicit context
+commands record episodes/tasks and recover continuity; ordinary preference commands
+retain their memory behavior. There is no general conversation archive. See
+[MEMORY_MANAGER.md](MEMORY_MANAGER.md), [CONTEXT_EPISODES.md](CONTEXT_EPISODES.md),
+and [CONTEXT_CONTINUITY.md](CONTEXT_CONTINUITY.md).
 
 AI fallback sends the user's command and selected context/memories to Gemini.
 Local storage does not imply that AI processing is offline. Diagnostic output
