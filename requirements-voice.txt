@@ -1,0 +1,8 @@
+# Optional local voice stack, including the base text-agent dependencies.
+# Wheels avoid native compiler/audio-library setup on supported Windows/macOS.
+--only-binary=:all:
+-r requirements.txt
+-c constraints-voice.txt
+faster-whisper==1.2.1
+sounddevice==0.5.6
+numpy==2.5.3

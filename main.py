@@ -77,9 +77,8 @@ def _unique_memories(memories):
     return unique_memories
 
 
-def _is_deterministic_open_target(target):
-    """Return whether an open target is resolvable without AI context."""
-    normalized_target = target.strip().lower()
+def _is_configured_open_target(target):
+    """Match only configured names, never arbitrary filesystem operands."""
     known_targets = (
         set(SITES)
         | set(SITE_ALIASES)
@@ -87,9 +86,14 @@ def _is_deterministic_open_target(target):
         | set(FOLDERS)
         | set(BROWSERS["available"])
     )
+    return target.strip().lower() in known_targets
+
+
+def _is_deterministic_open_target(target):
+    """Return whether an open target is resolvable without AI context."""
     return (
-        normalized_target in known_targets
-        or normalized_target.startswith(("file ", "folder "))
+        _is_configured_open_target(target)
+        or target.strip().lower().startswith(("file ", "folder "))
         or os.path.exists(target)
     )
 
@@ -142,7 +146,15 @@ def route_command(command):
         if parsed[0]["action"] == "search" and re.search(r"\byoutube\b", normalized):
             return "ai", None
         if parsed[0]["action"] == "open" and not _is_deterministic_open_target(parsed[0]["target"]):
-            return "ai", None
+            target = parsed[0]["target"]
+            candidate = target.rstrip(".!?").rstrip()
+            # A sentence ending is harmless only when it reveals a configured
+            # name. Preserve quoted operands, existing paths, and all other
+            # literal arguments; the parser itself remains lossless.
+            operand = command.split(maxsplit=1)[1]
+            if operand.startswith(('"', "'")) or not _is_configured_open_target(candidate):
+                return "ai", None
+            parsed[0]["target"] = candidate
         return "v1", parsed
 
     multi_action_parts = [part.strip() for part in normalized.split(" and ") if part.strip()]

@@ -3,8 +3,8 @@
 A local Python desktop assistant evolving toward a context-aware personal agent.
 The core combines deterministic commands, SQLite preference memory, context
 episodes/continuity, AI planning, and constrained desktop actions. Phase 3 adds a
-compact desktop command surface with voice provider abstractions; actual speech
-recognition, TTS, and phone clients remain deferred. No Docker or cloud service is needed.
+compact desktop command surface with optional local speech recognition; TTS and
+phone clients remain deferred. No Docker or cloud service is needed.
 
 ## Architecture
 
@@ -46,7 +46,7 @@ that minor version; it does not install Python. Other Python versions are unveri
 Install a Python distribution that includes pip, venv, and SQLite.
 
 Runtime dependencies are `google-genai`, `python-dotenv`, and `httpx`; tests add
-`pytest`. Both requirements entry points use `constraints.txt` to pin the tested
+`pytest`. The base/development entry points use `constraints.txt` to pin the tested
 transitive dependency set. There is no browser-driver or desktop-control framework.
 Dependency upgrades must be followed by the full tests; do not regenerate pins
 from a global environment. These are version pins, not a hash-verified wheel lock.
@@ -77,6 +77,68 @@ python3.12 -m venv .venv
 For runtime only, install `requirements.txt` instead. First installation requires
 network access to download dependencies. macOS setup and native actions require
 validation on an actual Mac; mocked platform tests do not establish native parity.
+
+## Optional local voice setup (Windows and macOS)
+
+Use **64-bit CPython 3.12**: Windows x64, macOS 13+ on Intel, or macOS 14+ on
+Apple Silicon, with native Python. The text agent needs only `requirements.txt`; development adds
+`requirements-dev.txt`. Voice is optional: `requirements-voice.txt` includes the
+base installation plus pinned `faster-whisper`, `sounddevice`, and `numpy`.
+It also applies `constraints-voice.txt` for voice-only transitive dependencies.
+
+From a fresh clone's root, Windows PowerShell:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-voice.txt
+.\.venv\Scripts\python.exe -m pip check
+.\.venv\Scripts\python.exe -c "import faster_whisper, sounddevice, numpy, ctranslate2, av, onnxruntime; print('Voice imports OK'); print(sounddevice.get_portaudio_version()); print(ctranslate2.get_supported_compute_types('cpu'))"
+```
+
+macOS (Intel or Apple Silicon):
+
+```bash
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements-voice.txt
+.venv/bin/python -m pip check
+.venv/bin/python -c "import faster_whisper, sounddevice, numpy, ctranslate2, av, onnxruntime; print('Voice imports OK'); print(sounddevice.get_portaudio_version()); print(ctranslate2.get_supported_compute_types('cpu'))"
+```
+
+For an existing base environment, skip venv creation and run the install/check
+commands. For text only, substitute `requirements.txt` and skip the voice import
+check. To add tests, install `-r requirements-dev.txt` in the same environment.
+Expect `No broken requirements found`, `Voice imports OK`, a PortAudio version,
+and CPU compute types. Verification does not record audio, load a model, or
+transcribe. Provision the model before using the UI microphone (commands below).
+
+The local provider uses English `base.en`, CPU INT8, and an immutable model
+revision. Provision once explicitly, then launch the UI:
+
+```powershell
+.\.venv\Scripts\python.exe provision_voice.py
+.\.venv\Scripts\python.exe -B desktop_ui.py
+```
+
+```bash
+.venv/bin/python provision_voice.py
+.venv/bin/python -B desktop_ui.py
+```
+
+Provisioning downloads the pinned public Hugging Face snapshot into the user cache,
+normally `~/.cache/huggingface/hub`, outside this repository. No API key, login,
+`.env`, or new environment variable is required. Recognition only loads the cached
+revision offline; a missing model produces setup guidance. The model loads lazily
+on the first voice request and is reused. See [VOICE_SETUP.md](VOICE_SETUP.md) for
+the exact revision, capture bounds, cancellation limits, and native smoke tests.
+
+Wheels supply PortAudio and FFmpeg libraries; no Homebrew audio package, separate
+FFmpeg executable, CUDA, or compiler is part of this setup. Windows may require
+Microsoft's Visual C++ x64 runtime. For capture, enable microphone access
+for desktop apps in Windows privacy settings, or grant the launching terminal/app
+Microphone permission in macOS System Settings > Privacy & Security. Connect and
+select an input device; import checks alone do not prove microphone access.
+See [VOICE_SETUP.md](VOICE_SETUP.md) for troubleshooting, provisioning details,
+upstream references, and validation limits.
 
 ## Gemini configuration
 
@@ -132,8 +194,9 @@ press Enter or Send, read the result, then dismiss with Escape or the close butt
 The surface forwards text to the existing core, including context commands such
 as "I'm here", "I'm leaving", and "Continue what I was doing".
 
-Voice input/output currently consist of replaceable interfaces, unavailable-provider
-stubs, and test mocks. **Actual microphone recognition and TTS are not implemented.**
+The desktop entry point injects the optional local voice input provider. Microphone
+recognition requires the voice installation and model provisioning above. TTS
+remains unimplemented; the output interface and unavailable stub are unchanged.
 There is no background listening or global hotkey service. See
 [VOICE_UI.md](VOICE_UI.md) for architecture, privacy, validation, and limitations.
 

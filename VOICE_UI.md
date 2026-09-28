@@ -41,7 +41,8 @@ One interaction runs at a time; Tk widgets remain on the UI thread.
 ## Running and invocation
 
 Use Python 3.12 with working Tcl/Tk support and the existing project environment.
-No dependency was added. From the repository root on Windows:
+Text input needs only the base dependencies. For microphone input, first follow
+[VOICE_SETUP.md](VOICE_SETUP.md). From the repository root on Windows:
 
 ```powershell
 .\.venv\Scripts\python.exe -B desktop_ui.py
@@ -78,25 +79,29 @@ within one UI polling interval.
 
 ## Current voice status
 
-**Actual microphone speech recognition and actual text-to-speech are deferred.**
-The shipped UI does not record or play audio.
+The desktop entry point now injects `LocalVoiceInput` behind the unchanged
+`VoiceInputProvider.recognize(cancel)` interface. It returns text to
+`InteractionController.submit_voice()`, which invokes the same `_submit` path as
+typed text. The default bare controller still uses `UnavailableVoiceInput`, and
+text-only installation works without optional imports.
 
-- `VoiceInputProvider.recognize(cancel)` is an interface for one explicit capture
-  returning ordinary text. The default `UnavailableVoiceInput` reports a controlled
-  failure; the UI invites the user to type instead. Successful recognition is
-  exercised only with mock providers in tests.
-- `VoiceOutputProvider.speak(response)` receives only the final successful
-  assistant response, never the input, action plan, or diagnostics. Output is
-  opt-in and absent by default; `UnavailableVoiceOutput` is an explicit stub.
-  Read reply without a configured provider displays a notice and retains text.
-- Future provider implementations must bound capture/output duration, honor
-  recognition cancellation, release microphone resources, and avoid audio storage.
-  These are provider contracts, not implemented hardware integrations or enforced
-  termination of arbitrary third-party code.
+`local_voice.py` handles bounded, in-memory microphone capture and lazy, reused
+CPU INT8 English `base.en` inference. `voice_model.py` resolves the exact pinned
+external snapshot offline; `provision_voice.py` is the explicit network-enabled
+setup command. No microphone opens at import/construction or outside a request.
+Fixed `VoiceInputFailure` notices give setup/device guidance without exposing
+backend exception text or replacing the previous response.
 
-There is no installed speech stack, cloud voice service, wake-word listener, or
-background microphone monitoring. No provider is constructed that opens hardware
-at startup. Providers are injected in code; no settings system was added.
+The microphone closes before transcription. Cancel/dismiss suppresses late results,
+but native model loading/inference may finish before the worker returns. Listening
+currently covers model loading, capture, and transcription. Capture has finite
+speech-start and utterance limits and a silence endpoint; no audio is saved.
+See [VOICE_SETUP.md](VOICE_SETUP.md) for exact settings, revision, permissions,
+troubleshooting, tests, and Windows/macOS native smoke instructions.
+
+**TTS is still unimplemented.** The existing output protocol, unavailable stub,
+and optional Read reply notice are unchanged. There is no wake word, global
+hotkey, cloud speech service, or background listening.
 
 ## Context continuity
 
@@ -118,18 +123,21 @@ database. See [CONTEXT_EPISODES.md](CONTEXT_EPISODES.md) and
 ## Safety and privacy
 
 UI and controller code contain no shell execution, direct desktop dispatch, SQL,
-planner, or provider calls. Existing schema validation, AI action policy, path/URL
+planner, or AI-provider calls. Existing schema validation, AI action policy, path/URL
 restrictions, platform mappings, and failure handling are unchanged.
 
 The interaction layer does not persist audio, transcripts, or conversation history.
 No raw audio enters memory, the database, or logs; no sensitive audio is logged.
-Recognized text would immediately become ordinary command text. Explicit remember
+Recognized text immediately becomes ordinary command text. Explicit remember
 requests can therefore persist their text through the existing memory semantics,
 and AI fallback can send text/context to the existing Gemini provider. This phase
 does not change those boundaries or the existing `.env` behavior. Optional spoken
 responses could be audible to nearby people once a real provider is implemented.
 
-## Validation
+## Historical interface milestone validation
+
+The results below predate the local provider. Current provider verification and
+native smoke-test scope are documented in [VOICE_SETUP.md](VOICE_SETUP.md).
 
 Windows validation on 2026-09-24 used Python 3.12.14:
 

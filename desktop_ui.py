@@ -156,7 +156,10 @@ def main():
     except tk.TclError:
         print("Desktop UI could not open a display. The text interface is still available: python main.py")
         return 1
-    surface = InstantSurface(root)
+    from local_voice import LocalVoiceInput
+
+    surface = InstantSurface(root, controller_factory=lambda publish: InteractionController(
+        publish, voice_input=LocalVoiceInput()))
     surface.summon()
     root.mainloop()
     return 0

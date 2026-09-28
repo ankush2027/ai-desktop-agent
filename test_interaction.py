@@ -246,7 +246,7 @@ def test_real_ai_boundary_still_invokes_policy_then_task_execution(voice, valid)
 def test_interaction_modules_have_no_alternate_agent_dependencies():
     root = Path(__file__).parent
     allowed = {"__future__", "contextlib", "dataclasses", "enum", "io", "threading", "typing",
-               "queue", "tkinter", "interaction", "voice", "main"}
+               "queue", "tkinter", "interaction", "voice", "main", "local_voice"}
     for filename in ("interaction.py", "voice.py", "desktop_ui.py"):
         tree = ast.parse((root / filename).read_text(encoding="utf-8"))
         for node in ast.walk(tree):

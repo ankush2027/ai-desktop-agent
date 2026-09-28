@@ -7,7 +7,7 @@ from io import StringIO
 from threading import Event, Lock
 from typing import Callable
 
-from voice import UnavailableVoiceInput, VoiceInputProvider, VoiceOutputProvider
+from voice import UnavailableVoiceInput, VoiceInputFailure, VoiceInputProvider, VoiceOutputProvider
 
 
 class InteractionState(str, Enum):
@@ -108,12 +108,13 @@ class InteractionController:
             self._publish(Presentation(InteractionState.LISTENING))
             try:
                 text = self._voice_input.recognize(self._cancel)
-            except Exception:
+            except Exception as exc:
                 if self._cancel.is_set():
                     self._publish(Presentation(InteractionState.IDLE, notice="Listening cancelled."))
                 else:
                     self._publish(Presentation(InteractionState.ERROR,
-                                               notice="Voice input is unavailable. Type your command instead."))
+                                               notice=exc.notice if isinstance(exc, VoiceInputFailure) else
+                                               "Voice input is unavailable. Type your command instead."))
                 return False
             if self._cancel.is_set() or self._dismissed.is_set():
                 self._publish(Presentation(InteractionState.IDLE, notice="Listening cancelled."))

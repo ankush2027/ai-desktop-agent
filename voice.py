@@ -8,6 +8,27 @@ class VoiceInputError(RuntimeError):
     """Recognition could not produce usable text."""
 
 
+class VoiceInputFailure(VoiceInputError):
+    """Fixed public notices; never expose backend exception text to the UI."""
+
+    NOTICES = {
+        "dependencies": "Install requirements-voice.txt to enable local voice. See VOICE_SETUP.md.",
+        "model": "Voice model missing or incomplete. Run python provision_voice.py with your venv. See VOICE_SETUP.md.",
+        "cache": "The voice model cache must be outside the repository. See VOICE_SETUP.md.",
+        "load": "The local voice model could not load. Check the voice installation and model cache.",
+        "device": "Microphone unavailable or unsupported. Check the default input device and microphone permission.",
+        "audio": "Microphone audio was interrupted. Check the device and try again.",
+        "empty": "No speech recognized. Try again or type your command.",
+        "duration": "Speech exceeded the capture limit. Try a shorter command.",
+        "transcription": "Local transcription failed. Try again or type your command.",
+        "busy": "A voice request is already running.",
+    }
+
+    def __init__(self, code):
+        self.notice = self.NOTICES.get(code, "Voice input is unavailable. Type your command instead.")
+        super().__init__(self.notice)
+
+
 class VoiceOutputError(RuntimeError):
     """Speech output failed; the visible response must remain available."""
 

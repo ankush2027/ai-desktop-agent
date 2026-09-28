@@ -93,6 +93,76 @@ def test_natural_language_routing_is_preserved():
     assert main.route_command("Please open my preferred browser") == ("ai", None)
 
 
+@pytest.mark.parametrize("punctuation", [".", "?", "!", "?!", "..."])
+@pytest.mark.parametrize("verb,target", [("Open", "YouTube"), ("Open", "Calculator"),
+                                        ("Open", "Google"), ("launch", "yt"),
+                                        ("start", "brave"), ("open", "downloads")])
+def test_terminal_punctuation_on_configured_open_targets(verb, target, punctuation):
+    command = f"  {verb} {target}{punctuation}  "
+    expected = [{"action": "open", "target": target, "params": {}}]
+    assert main.route_command(command) == ("v1", expected)
+    # Normalization belongs to routing; direct parsing still preserves operands.
+    assert parse_command(command)[0]["target"] == target + punctuation
+
+
+@pytest.mark.parametrize("voice", [False, True])
+@pytest.mark.parametrize("command,target,action", [("Open YouTube.", "YouTube", "open"),
+                                                  ("Open Calculator!", "Calculator", "open"),
+                                                  ("Open Google?", "Google", "open"),
+                                                  ("Search Python?", "Python?", "search")])
+def test_punctuated_controller_commands_never_call_ai(voice, command, target, action):
+    from unittest.mock import Mock
+    from interaction import InteractionController
+    controller = InteractionController(lambda update: None,
+        voice_input=Mock(recognize=Mock(return_value=command)))
+    with patch.object(main, "execute") as execute, \
+         patch.object(main, "process_natural_language_command") as ai:
+        assert controller.submit_voice() if voice else controller.submit_text(command)
+    execute.assert_called_once_with({"action": action, "target": target, "params": {}})
+    ai.assert_not_called()
+
+
+@pytest.mark.parametrize("command", [
+    'open "youtube."', "open 'calculator!'", "open UnknownApp!",
+    "open report.txt.", r"open C:\Reports\youtube.", "open https://youtube.com/watch?v=test!",
+    "Please open YouTube.", "open youtube and open calculator.",
+])
+def test_ambiguous_open_and_ai_commands_are_not_rewritten(command):
+    with patch.object(main, "process_natural_language_command", return_value=[]) as ai, \
+         patch.object(main, "execute") as execute:
+        main.handle_command(command)
+    ai.assert_called_once_with(command)
+    execute.assert_not_called()
+
+
+@pytest.mark.parametrize("command,target,params", [
+    ('open file youtube.', 'file youtube.', {}),
+    ('open folder calculator!', 'folder calculator!', {}),
+    ('create file youtube.', 'youtube.', {'type': 'file'}),
+    ('rename file old.txt new.txt!', 'old.txt', {'type': 'file', 'new_name': 'new.txt!'}),
+    ('copy file old.txt new.txt?', 'old.txt', {'type': 'file', 'destination': 'new.txt?'}),
+    ('search "Python?"', 'Python?', {}),
+    ('search https://example.com/path?q=Python?', 'https://example.com/path?q=Python?', {}),
+    ('search release-3.12!', 'release-3.12!', {}),
+])
+def test_literal_argument_and_parameter_punctuation_preserved(command, target, params):
+    route, parsed = main.route_command(command)
+    assert route == "v1"
+    assert parsed[0]["target"] == target
+    assert parsed[0]["params"] == params
+
+
+def test_existing_literal_path_wins_over_punctuation_normalization(monkeypatch):
+    monkeypatch.setattr(main.os.path, "exists", lambda path: path == "youtube.")
+    assert main.route_command("open youtube.") == (
+        "v1", [{"action": "open", "target": "youtube.", "params": {}}])
+
+
+def test_whitespace_before_terminal_punctuation():
+    assert main.route_command("Open YouTube .") == (
+        "v1", [{"action": "open", "target": "YouTube", "params": {}}])
+
+
 @pytest.mark.parametrize("verb", ["copy", "move"])
 def test_copy_move_dispatch_keeps_existing_destination_contract(verb):
     # Handler destination/new_name alignment is a separate audit issue.

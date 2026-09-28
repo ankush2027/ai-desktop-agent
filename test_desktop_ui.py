@@ -9,6 +9,7 @@ import pytest
 
 from desktop_ui import InstantSurface, main
 from interaction import AgentReply, InteractionController, InteractionState, Presentation
+from voice import VoiceInputFailure
 
 
 class Widget:
@@ -123,6 +124,32 @@ def test_failed_voice_input_preserves_previous_text_result(fake_tk, outcome):
     assert view.response.value == "Previous result"
     core.assert_not_called()
     assert view._state == (InteractionState.IDLE if outcome == "cancelled" else InteractionState.ERROR)
+
+
+@pytest.mark.parametrize("code", ["model", "dependencies", "device", "empty", "transcription"])
+def test_actionable_voice_notice_preserves_previous_response(fake_tk, code):
+    microphone = Mock(recognize=Mock(side_effect=VoiceInputFailure(code)))
+    view, _, core = surface(microphone=microphone)
+    view._present(Presentation(InteractionState.RESPONDING, "Previous result"))
+    view.listen()
+    finish(view)
+    assert view.response.value == "Previous result"
+    assert view.status.get() == VoiceInputFailure.NOTICES[code]
+    core.assert_not_called()
+
+
+def test_desktop_entry_point_injects_lazy_local_provider(fake_tk, monkeypatch):
+    import desktop_ui
+    from local_voice import LocalVoiceInput
+    created = []
+    class Surface:
+        def __init__(self, root, *, controller_factory):
+            created.append(controller_factory(lambda update: None))
+        def summon(self): pass
+    monkeypatch.setattr(desktop_ui, "InstantSurface", Surface)
+    assert desktop_ui.main() == 0
+    assert isinstance(created[0]._voice_input, LocalVoiceInput)
+    assert created[0]._voice_input._model is None
 
 
 def test_response_is_replaced_not_appended_as_history(fake_tk):
