@@ -1,9 +1,9 @@
 import os
+from pathlib import Path
 
 
 def rename_folder(old_name, new_name):
-    try:
-        os.rename(old_name, new_name)
-        print(f"Renamed '{old_name}' to '{new_name}'.")
-    except FileNotFoundError:
-        print(f"'{old_name}' does not exist.")
+    if not Path(old_name).is_dir():
+        raise ValueError("Rename source must be an existing folder.")
+    os.rename(old_name, new_name)
+    print("Folder renamed.")

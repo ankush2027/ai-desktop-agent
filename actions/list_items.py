@@ -1,6 +1,9 @@
 from config import SITES, APPS, FOLDERS
 
 def list_items(target="", params=None):
+    if set(params or {}) - {"context"}:
+        raise ValueError("List action contains unsupported parameters.")
+    target = target.lower()
     if target == "sites":
         print("Available sites:")
         for site in SITES:
@@ -17,4 +20,4 @@ def list_items(target="", params=None):
             print(f"- {folder}")
 
     else:
-        print(f"Unsupported target: {target}")
+        raise ValueError("List target is not supported.")

@@ -11,4 +11,4 @@ def create(target, params):
         create_folder(target)
 
     else:
-        print("Unknown create type.")
+        raise ValueError("Create requires a file or folder type.")

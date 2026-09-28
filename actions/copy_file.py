@@ -1,8 +1,8 @@
 import shutil
+from pathlib import Path
 
 def copy_file(source, destination):
-    try:
-        shutil.copy(source, destination)
-        print(f"Copied '{source}' to '{destination}'.")
-    except FileNotFoundError:
-        print(f"'{source}' does not exist.")
+    if not Path(source).is_file():
+        raise ValueError("Copy source must be an existing file.")
+    shutil.copy(source, destination)
+    print("File copied.")

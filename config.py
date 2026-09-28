@@ -7,10 +7,17 @@ SITES={
 
 
 APPS = {
-    "calculator": "Calculator.app",
-    "vscode": "VS CODE.app",
-    "whatsapp": "WhatsApp.app"
+    "calculator": "Calculator",
+    "vscode": "Visual Studio Code",
+    "whatsapp": "WhatsApp",
+    "telegram": "Telegram"
 }
+
+BROWSERS = {
+    "available": ["safari", "brave"],
+    "preferred": "brave",
+}
+
 
 SITE_ALIASES={
     "yt":"youtube",

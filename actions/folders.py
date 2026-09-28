@@ -1,6 +1,6 @@
-import subprocess
 import os
 from config import FOLDERS
+from actions.local_paths import open_local_target
 
 
 def open_folder(folder_name):
@@ -9,8 +9,8 @@ def open_folder(folder_name):
     if folder_name in FOLDERS:
         real_folder_path = os.path.expanduser(FOLDERS[folder_name])
 
-        subprocess.run(["open", real_folder_path])
+        open_local_target(real_folder_path)
 
-        print(f"Opening {real_folder_path}...")
+        print("Folder opening requested.")
     else:
-        print(f"Folder '{folder_name}' not supported.")
+        raise ValueError("Folder is not supported.")

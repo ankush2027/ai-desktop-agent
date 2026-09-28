@@ -1,8 +1,8 @@
 import shutil
+from pathlib import Path
 
 def move_file(source,destination):
-    try:
-        shutil.move(source, destination)
-        print(f"Moved '{source}' to '{destination}'.")
-    except FileNotFoundError:
-        print(f"'{source}' does not exist.")
+    if not Path(source).is_file():
+        raise ValueError("Move source must be an existing file.")
+    shutil.move(source, destination)
+    print("File moved.")
