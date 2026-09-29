@@ -3,6 +3,7 @@
 from collections import deque
 from dataclasses import dataclass
 from math import isfinite
+from pathlib import Path
 from queue import Empty, Queue
 from threading import Event, Lock
 from time import monotonic
@@ -19,6 +20,20 @@ MIN_SPEECH_SECONDS = 0.1
 MIN_SPEECH_RMS = 0.001
 INITIAL_NOISE_RMS = 0.0003
 
+# Detect macOS via a well-known filesystem sentinel so that sounddevice's
+# platform-specific callback behaviour (Core Audio vs WASAPI/DirectSound) can
+# be handled without importing sys, os, or platform — none of which appear in
+# the allowed-dependency list for this module (see test_local_voice.py).
+_IS_MACOS = Path("/System/Library/CoreServices/SystemVersion.plist").is_file()
+# Number of 20 ms audio blocks used as a noise-floor calibration window before
+# VAD onset detection begins.  On macOS, Core Audio hardware has a higher
+# ambient noise floor than Windows WASAPI/DirectSound (~0.00445 vs <0.001 RMS),
+# which causes INITIAL_NOISE_RMS (0.0003) to be too low and immediately
+# triggers false speech onset.  300 ms (15 blocks) is enough for noise_rms
+# to converge well above INITIAL_NOISE_RMS before any onset gate fires.
+# Windows retains 0 (no calibration window, identical to original behaviour).
+DEFAULT_CAL_BLOCKS: int = 15 if _IS_MACOS else 0
+
 
 @dataclass(frozen=True)
 class CaptureConfig:
@@ -26,6 +41,14 @@ class CaptureConfig:
     max_utterance_duration: float = 15.0
     silence_duration: float = 0.8
     speech_threshold: float = 0.015  # Upper bound for the adaptive onset threshold.
+    # Number of audio blocks consumed as a noise-floor calibration pass before
+    # onset detection begins.  On macOS, Core Audio hardware typically has a
+    # higher ambient noise floor than Windows WASAPI/DirectSound, so
+    # INITIAL_NOISE_RMS (0.0003) underestimates the true floor.  A non-zero
+    # value (e.g. 15 = 300 ms at 20 ms/block) lets noise_rms converge before
+    # any onset gate is applied.  Default 0 preserves existing behaviour on
+    # Windows and in all offline tests that use scripted audio events.
+    calibration_blocks: int = 0
 
     def __post_init__(self):
         for value, maximum in ((self.speech_start_timeout, 30),
@@ -35,6 +58,8 @@ class CaptureConfig:
                 raise ValueError("Capture settings must be finite, positive, and within safe bounds.")
         if self.silence_duration >= self.max_utterance_duration:
             raise ValueError("Silence duration must be shorter than the utterance limit.")
+        if not isinstance(self.calibration_blocks, int) or not 0 <= self.calibration_blocks <= 500:
+            raise ValueError("Capture settings must be finite, positive, and within safe bounds.")
 
 
 def check_cancel(cancel):
@@ -128,6 +153,7 @@ class LocalVoiceInput:
             onset_frames = 0
             noise_rms = INITIAL_NOISE_RMS
             end_threshold = None
+            calibration_count = 0
             while True:
                 check_cancel(cancel)
                 if failed.is_set():
@@ -144,6 +170,18 @@ class LocalVoiceInput:
                 if not np.isfinite(block).all():
                     raise VoiceInputFailure("audio")
                 rms = float(np.sqrt(np.mean(block * block)))
+                # Calibration phase: learn the real ambient noise floor from the
+                # first calibration_blocks blocks before enabling onset detection.
+                # On macOS, Core Audio hardware has a higher noise floor than
+                # Windows WASAPI/DirectSound; without calibration, INITIAL_NOISE_RMS
+                # (0.0003) is too low and ambient noise (≈0.00445 RMS) immediately
+                # triggers false speech onset that never ends.  calibration_blocks=0
+                # (the default) is a no-op, preserving Windows behaviour exactly.
+                if calibration_count < cfg.calibration_blocks:
+                    pre_roll.append(block)
+                    noise_rms = 0.9 * noise_rms + 0.1 * rms
+                    calibration_count += 1
+                    continue
                 # Learn only from quiet blocks so speech cannot raise its own
                 # gate. A floor rejects low-level microphone noise; the existing
                 # configured threshold remains a ceiling, not a loudness demand.

@@ -361,9 +361,47 @@ def test_transcription_failure_happens_after_stream_closed(backend, microphone, 
 @pytest.mark.parametrize("kwargs", [{"speech_start_timeout": 0}, {"speech_start_timeout": float('inf')},
                                    {"max_utterance_duration": 61}, {"silence_duration": -1},
                                    {"speech_threshold": float('nan')}, {"speech_threshold": 2},
-                                   {"max_utterance_duration": .5, "silence_duration": 1}])
+                                   {"max_utterance_duration": .5, "silence_duration": 1},
+                                   {"calibration_blocks": -1}, {"calibration_blocks": 501}])
 def test_unsafe_capture_config_rejected(kwargs):
     with pytest.raises(ValueError): lv.CaptureConfig(**kwargs)
+
+
+def test_mac_ambient_noise_calibration_prevents_false_onset(microphone):
+    """Regression: calibration_blocks prevents Mac Core Audio noise from triggering false speech.
+
+    Without calibration, Mac microphone ambient noise (~0.00445 RMS) exceeds the
+    initial speech threshold (INITIAL_NOISE_RMS * 3 = 0.0009, floored to 0.001).
+    speech_started is set immediately, end_threshold (0.0006) is far below ambient,
+    silence is never detected, and capture times out with VoiceInputFailure("duration").
+
+    With calibration_blocks=15 (300 ms), noise_rms converges toward 0.00445 before
+    onset detection begins, raising start_threshold to ~0.013 so ambient is correctly
+    classified as silence and only genuine speech (>>0.013 RMS) triggers onset.
+    """
+    m = microphone
+    mac_ambient = 0.00445   # Measured Mac Core Audio microphone ambient noise floor.
+    real_speech = 0.05      # Realistic Mac speech amplitude (well above ambient).
+    cal_blocks = 15         # 300 ms at 20 ms/block — the value used in desktop_ui.py.
+
+    # Supply calibration blocks + some trailing ambient + speech + silence.
+    # Calibration consumes the first cal_blocks events; the remaining ambient
+    # blocks drive noise_rms further toward mac_ambient before any onset gate fires.
+    m.events.extend(
+        [mac_ambient] * (cal_blocks + 5)   # calibration window + trailing ambient
+        + [real_speech] * 10               # genuine speech above calibrated threshold
+        + [mac_ambient] * 10               # trailing ambient => silence detected
+    )
+    m.provider = lv.LocalVoiceInput(lv.CaptureConfig(
+        speech_start_timeout=2.0,
+        max_utterance_duration=5.0,
+        silence_duration=0.06,  # 3 blocks; 10 trailing ambient blocks > this.
+        calibration_blocks=cal_blocks,
+    ))
+    audio = capture(m)
+    # The captured audio must contain all 10 real-speech blocks (plus pre-roll
+    # ambient).  No speech should be captured before the real_speech blocks.
+    assert sum(abs(v - real_speech) < 1e-9 for v in audio) == 10 * 320
 
 
 def test_provider_text_reaches_existing_controller_path(backend):

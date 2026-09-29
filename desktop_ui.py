@@ -156,10 +156,17 @@ def main():
     except tk.TclError:
         print("Desktop UI could not open a display. The text interface is still available: python main.py")
         return 1
-    from local_voice import LocalVoiceInput
+    from local_voice import LocalVoiceInput, CaptureConfig, DEFAULT_CAL_BLOCKS
 
+    # On macOS, Core Audio hardware has a higher ambient noise floor than
+    # Windows WASAPI/DirectSound.  INITIAL_NOISE_RMS (0.0003) is too low for
+    # the Mac microphone (~0.00445 RMS), causing the VAD to detect speech
+    # immediately and never find silence, timing out with
+    # VoiceInputFailure("duration").  DEFAULT_CAL_BLOCKS (15 on macOS, 0 on
+    # Windows) adds a 300 ms calibration window before onset detection begins;
+    # see local_voice.DEFAULT_CAL_BLOCKS for the full rationale.
     surface = InstantSurface(root, controller_factory=lambda publish: InteractionController(
-        publish, voice_input=LocalVoiceInput()))
+        publish, voice_input=LocalVoiceInput(CaptureConfig(calibration_blocks=DEFAULT_CAL_BLOCKS))))
     surface.summon()
     root.mainloop()
     return 0
