@@ -49,7 +49,7 @@ def test_unknown_os_never_launches(system, operation, desktop_fakes):
         launch.assert_not_called()
 
 
-@pytest.mark.parametrize("name,app", [("calculator", "Calculator"), ("vscode", "Visual Studio Code"),
+@pytest.mark.parametrize("name,app", [("calculator", "Calculator"), ("vscode", "/Applications/VS CODE.app"),
                                     ("whatsapp", "WhatsApp"), ("telegram", "Telegram")])
 def test_macos_app_mapping(name, app, desktop_fakes):
     with patch("platform.system", return_value="Darwin"):
@@ -196,7 +196,7 @@ def test_ai_app_plan_reaches_adapter_after_policy(system, desktop_fakes):
     if system == "Windows":
         desktop_fakes[0].assert_called_once_with(["fixed-install.exe"])
     else:
-        desktop_fakes[1].assert_called_once_with(["/usr/bin/open", "-a", "Visual Studio Code"], check=True)
+        desktop_fakes[1].assert_called_once_with(["/usr/bin/open", "-a", "/Applications/VS CODE.app"], check=True)
 
 
 def test_windows_alternate_data_stream_rejected(tmp_path, desktop_fakes):

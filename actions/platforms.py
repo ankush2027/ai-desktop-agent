@@ -112,7 +112,7 @@ class MacOSAdapter:
     browsers = {"brave": "Brave Browser", "safari": "Safari"}
     apps = {
         "calculator": "Calculator",
-        "vscode": "Visual Studio Code",
+        "vscode": "/Applications/VS CODE.app",
         "whatsapp": "WhatsApp",
         "telegram": "Telegram",
     }
