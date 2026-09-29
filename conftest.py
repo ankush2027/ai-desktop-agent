@@ -36,7 +36,7 @@ def pytest_configure(config):
     config._agent_test_patches = patches
     config._agent_original_environment = dict(os.environ)
     for name in (
-        "GEMINI_API_KEY", "GEMINI_MODEL", "GOOGLE_API_KEY",
+        "GEMINI_API_KEY", "GEMINI_MODEL", "GOOGLE_API_KEY", "GROQ_API_KEY",
         "GOOGLE_GENAI_USE_VERTEXAI", "GOOGLE_CLOUD_PROJECT", "GOOGLE_CLOUD_LOCATION",
     ):
         os.environ.pop(name, None)

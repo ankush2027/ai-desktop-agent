@@ -3,3 +3,5 @@
 google-genai==2.24.0
 python-dotenv==1.2.3
 httpx==0.28.1
+# Fallback is macOS only; Windows dependencies remain unchanged.
+groq==1.7.0; sys_platform == "darwin"

@@ -51,7 +51,18 @@ class GeminiProvider:
             genai_errors.APIError,
         ) as exc:
             print(f"[AI] Gemini request failed: category={error_category(exc)}")
-            raise GeminiProviderError("Gemini request failed.") from None
+            # DIAGNOSTIC: log the exception type and HTTP status code so the
+            # caller can distinguish transient server errors (503) from auth
+            # failures (401/403), invalid models (404), quota (429), etc.
+            # The response body (str(exc)) is intentionally excluded: it may
+            # contain private provider payload and is tested for non-disclosure.
+            _exc_type = type(exc).__name__
+            _status = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+            print(f"[AI] Gemini diagnostic: exc_type={_exc_type} http_status={_status}")
+            transient = isinstance(exc, (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError)) or (
+                isinstance(exc, genai_errors.APIError) and exc.code in {408, 500, 502, 503, 504}
+            )
+            raise GeminiProviderError("Gemini request failed.", transient=transient) from None
 
         text = response.text
         if not isinstance(text, str) or not text.strip():
