@@ -320,3 +320,9 @@ class MemoryManager:
     def get_episodes(self, name=None):
         """Candidate episodes for deterministic continuity selection."""
         return self.store.get_episodes(name)
+
+    def save_workspace(self, name, definition):
+        self.store.save_workspace(name, definition)
+
+    def load_workspace(self, name):
+        return self.store.load_workspace(name)

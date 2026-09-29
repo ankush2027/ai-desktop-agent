@@ -69,10 +69,16 @@ class ActionPolicy:
                 continue
             if self._UNSAFE_TARGET.search(target) or any(self._UNSAFE_TARGET.search(value) for value in params.values()):
                 raise ActionPolicyError("AI action contains unsafe characters.")
-            allowed = {"close": set(), "open": {"url"}, "search": {"engine", "query"}, "list": set(), "help": set()}[action]
+            allowed = {"save_workspace": set(), "restore_workspace": set(), "close": set(), "open": {"url"}, "search": {"engine", "query"}, "list": set(), "help": set()}[action]
             if set(params) - allowed:
                 raise ActionPolicyError("AI action contains unsupported parameters.")
-            if action == "close":
+            if action in {"save_workspace", "restore_workspace"}:
+                if self._platform().name != "Darwin":
+                    raise ActionPolicyError("Workspaces are supported only on macOS.")
+                if target.lower() != "coding":
+                    raise ActionPolicyError("Only the coding workspace is supported.")
+                item["target"] = "coding"
+            elif action == "close":
                 adapter = self._platform()
                 if adapter.name != "Darwin":
                     raise ActionPolicyError("Application closing is supported only on macOS.")

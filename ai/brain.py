@@ -69,6 +69,11 @@ class AIBrain:
             + ("On macOS, close accepts only configured applications or supported browsers with empty params. "
              "Never substitute a browser for a website close request or substitute another application. "
              "Supported close browsers are brave and safari. " if "close" in allowed_actions() else "")
+            + ("For 'Save my coding workspace', return one save_workspace action with target coding and empty params. "
+               "For 'Restore my coding workspace', return one restore_workspace action with target coding and empty params. "
+               "Only the fixed coding workspace is supported: VS Code and Brave. "
+               "Do not supply app lists, discover running apps, or emit additional open actions for workspace requests. "
+               if "save_workspace" in allowed_actions() else "")
             + "Open accepts only url on browser targets, restricted to configured site home URLs. "
             "Do not supply browser, mode, or theme parameters. List targets are sites, apps, folders. "
             "When a browser is needed, use the preferred browser from the supplied context. "

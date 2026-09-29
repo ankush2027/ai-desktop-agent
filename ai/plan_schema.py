@@ -10,7 +10,7 @@ MAX_RESPONSE_CHARS = 32768
 
 
 def allowed_actions():
-    return ALLOWED_ACTIONS | ({"close"} if platform.system() == "Darwin" else set())
+    return ALLOWED_ACTIONS | ({"close", "save_workspace", "restore_workspace"} if platform.system() == "Darwin" else set())
 
 
 def validate_plan(payload):

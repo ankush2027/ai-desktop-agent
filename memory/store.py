@@ -240,3 +240,21 @@ class MemoryStore:
             params = (name,)
         return [self._context_row(row, ContextEpisode) for row in self._execute(
             sql + " ORDER BY started_at DESC, rowid DESC", params, rows=True)]
+
+    def _initialize_workspace_schema(self):
+        # Lazy: existing memory operations and Windows do not create this table.
+        self._execute("""CREATE TABLE IF NOT EXISTS workspaces (
+            name TEXT PRIMARY KEY CHECK(name = 'coding'), definition TEXT NOT NULL)""")
+
+    def save_workspace(self, name, definition):
+        with self.transaction():
+            self._initialize_workspace_schema()
+            self._execute("""INSERT INTO workspaces (name, definition) VALUES (?, ?)
+                ON CONFLICT(name) DO UPDATE SET definition=excluded.definition""",
+                (name, definition))
+
+    def load_workspace(self, name):
+        with self.transaction():
+            self._initialize_workspace_schema()
+            rows = self._execute("SELECT definition FROM workspaces WHERE name = ?", (name,), rows=True)
+        return rows[0]["definition"] if rows else None
