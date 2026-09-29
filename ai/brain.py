@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from ai.provider import LLMProvider
 from ai.provider_manager import ProviderManager
 from ai.errors import AIPlanningError
-from ai.plan_schema import ALLOWED_ACTIONS, MAX_ACTIONS, MAX_RESPONSE_CHARS, validate_plan
+from ai.plan_schema import ALLOWED_ACTIONS, MAX_ACTIONS, MAX_RESPONSE_CHARS, allowed_actions, validate_plan
 from config import APPS, SITES, SITE_ALIASES
 
 
@@ -61,12 +61,15 @@ class AIBrain:
             "Do not generate Python, shell, filesystem, or code execution instructions. "
             "The JSON must match this schema: "
             '{"actions":[{"action":"open","target":"example-target","params":{}}]}. '
-            f"Allowed actions are: {sorted(self.VALID_ACTIONS)}. "
+            f"Allowed actions are: {sorted(allowed_actions())}. "
             f"Return at most {MAX_ACTIONS} actions. Configured applications: {sorted(APPS)}. "
             f"Configured sites/aliases: {sorted(set(SITES) | set(SITE_ALIASES))}. "
             "Every action must include a string 'action', a non-empty string 'target', and an object 'params'. "
             "Open only configured sites/apps, supported browsers, or safe local documents/folders. "
-            "Open accepts only url on browser targets, restricted to configured site home URLs. "
+            + ("On macOS, close accepts only configured applications or supported browsers with empty params. "
+             "Never substitute a browser for a website close request or substitute another application. "
+             "Supported close browsers are brave and safari. " if "close" in allowed_actions() else "")
+            + "Open accepts only url on browser targets, restricted to configured site home URLs. "
             "Do not supply browser, mode, or theme parameters. List targets are sites, apps, folders. "
             "When a browser is needed, use the preferred browser from the supplied context. "
             "For YouTube searches, return one search action with the raw search terms as target "

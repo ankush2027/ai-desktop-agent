@@ -8,6 +8,7 @@ from actions.help import show_help
 from actions.list_items import list_items
 from logger import log_action
 from actions.opener import open_target
+from actions.apps import close_app
 from actions.search import search_google
 from actions.email import draft_email
 from memory import MemoryManager
@@ -20,6 +21,7 @@ context_engine = None  # Optional caller-owned context engine; no import-time st
 ACTION_MAP = {
     "draft_email": draft_email,
     "open": open_target,
+    "close": close_app,
     "search": search_google,
     "list": list_items,
     "help": show_help,

@@ -1,10 +1,16 @@
 """The shared, bounded schema for AI action plans."""
 
+import platform
+
 from ai.errors import AIPlanningError
 
 ALLOWED_ACTIONS = {"open", "search", "list", "help", "draft_email"}
 MAX_ACTIONS = 10
 MAX_RESPONSE_CHARS = 32768
+
+
+def allowed_actions():
+    return ALLOWED_ACTIONS | ({"close"} if platform.system() == "Darwin" else set())
 
 
 def validate_plan(payload):
@@ -22,7 +28,7 @@ def validate_plan(payload):
         if not isinstance(item, dict) or set(item) - {"action", "target", "params"}:
             reject()
         action, target, params = item.get("action"), item.get("target"), item.get("params", {})
-        if not isinstance(action, str) or action not in ALLOWED_ACTIONS:
+        if not isinstance(action, str) or action not in allowed_actions():
             reject()
         if not isinstance(target, str) or not target.strip() or not isinstance(params, dict):
             reject()

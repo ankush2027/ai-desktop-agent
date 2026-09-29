@@ -125,6 +125,23 @@ class MacOSAdapter:
         if name not in APPS or name not in self.apps:
             raise DesktopUnavailable("Application is not supported on macOS.")
 
+    def require_close_app(self, name):
+        if name in BROWSERS["available"]:
+            self.require_browser(name)
+        else:
+            self.require_app(name)
+
+    def close_app(self, name):
+        self.require_close_app(name)
+        application = self.browsers[name] if name in BROWSERS["available"] else self.apps[name]
+        # Only adapter-owned names enter this fixed AppleScript. Checking running
+        # first avoids launching an application merely to quit it.
+        script = f'if application "{application}" is running then tell application "{application}" to quit'
+        try:
+            subprocess.run(["/usr/bin/osascript", "-e", script], check=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            raise DesktopUnavailable("macOS could not complete the application quit request.") from None
+
     def open_app(self, name):
         self.require_app(name)
         subprocess.run(["/usr/bin/open", "-a", self.apps[name]], check=True)

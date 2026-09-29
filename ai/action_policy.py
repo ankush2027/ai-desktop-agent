@@ -69,10 +69,20 @@ class ActionPolicy:
                 continue
             if self._UNSAFE_TARGET.search(target) or any(self._UNSAFE_TARGET.search(value) for value in params.values()):
                 raise ActionPolicyError("AI action contains unsafe characters.")
-            allowed = {"open": {"url"}, "search": {"engine", "query"}, "list": set(), "help": set()}[action]
+            allowed = {"close": set(), "open": {"url"}, "search": {"engine", "query"}, "list": set(), "help": set()}[action]
             if set(params) - allowed:
                 raise ActionPolicyError("AI action contains unsupported parameters.")
-            if action == "open":
+            if action == "close":
+                adapter = self._platform()
+                if adapter.name != "Darwin":
+                    raise ActionPolicyError("Application closing is supported only on macOS.")
+                normalized = target.lower()
+                try:
+                    adapter.require_close_app(normalized)
+                except (RuntimeError, ValueError) as exc:
+                    raise ActionPolicyError(str(exc)) from None
+                item["target"] = normalized
+            elif action == "open":
                 normalized = target.lower()
                 if normalized in BROWSERS["available"]:
                     self._browser_platform(normalized)
