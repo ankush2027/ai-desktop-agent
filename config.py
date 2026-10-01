@@ -64,3 +64,6 @@ ACTION_ALIASES = {
     "copy":"copy",
     "move":"move"
 }
+
+# Trusted Mac workspace destinations. AI plans cannot extend this catalog.
+WORKSPACE_URLS = {"youtube_music": "https://music.youtube.com"}

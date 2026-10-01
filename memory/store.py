@@ -242,9 +242,19 @@ class MemoryStore:
             sql + " ORDER BY started_at DESC, rowid DESC", params, rows=True)]
 
     def _initialize_workspace_schema(self):
-        # Lazy: existing memory operations and Windows do not create this table.
-        self._execute("""CREATE TABLE IF NOT EXISTS workspaces (
-            name TEXT PRIMARY KEY CHECK(name = 'coding'), definition TEXT NOT NULL)""")
+        # Only workspace operations invoke this, inside the existing transaction.
+        # Remove the old coding-only CHECK atomically; preserve definitions byte
+        # for byte and do not touch memory/context tables or schema versions.
+        rows = self._execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='workspaces'", rows=True)
+        if rows and "check(name='coding')" in "".join(rows[0]["sql"].lower().split()):
+            self._execute("""CREATE TABLE workspaces_upgrade (
+                name TEXT PRIMARY KEY NOT NULL, definition TEXT NOT NULL)""")
+            self._execute("INSERT INTO workspaces_upgrade SELECT name, definition FROM workspaces")
+            self._execute("DROP TABLE workspaces")
+            self._execute("ALTER TABLE workspaces_upgrade RENAME TO workspaces")
+        else:
+            self._execute("""CREATE TABLE IF NOT EXISTS workspaces (
+                name TEXT PRIMARY KEY NOT NULL, definition TEXT NOT NULL)""")
 
     def save_workspace(self, name, definition):
         with self.transaction():
@@ -258,3 +268,14 @@ class MemoryStore:
             self._initialize_workspace_schema()
             rows = self._execute("SELECT definition FROM workspaces WHERE name = ?", (name,), rows=True)
         return rows[0]["definition"] if rows else None
+
+    def list_workspaces(self):
+        with self.transaction():
+            self._initialize_workspace_schema()
+            rows = self._execute("SELECT name FROM workspaces ORDER BY name", rows=True)
+        return [row["name"] for row in rows]
+
+    def delete_workspace(self, name):
+        with self.transaction():
+            self._initialize_workspace_schema()
+            return self._execute("DELETE FROM workspaces WHERE name = ?", (name,)) > 0

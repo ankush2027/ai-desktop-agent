@@ -6,7 +6,7 @@ from ai.provider import LLMProvider
 from ai.provider_manager import ProviderManager
 from ai.errors import AIPlanningError
 from ai.plan_schema import ALLOWED_ACTIONS, MAX_ACTIONS, MAX_RESPONSE_CHARS, allowed_actions, validate_plan
-from config import APPS, SITES, SITE_ALIASES
+from config import APPS, SITES, SITE_ALIASES, WORKSPACE_URLS
 
 
 class AIBrain:
@@ -71,8 +71,15 @@ class AIBrain:
              "Supported close browsers are brave and safari. " if "close" in allowed_actions() else "")
             + ("For 'Save my coding workspace', return one save_workspace action with target coding and empty params. "
                "For 'Restore my coding workspace', return one restore_workspace action with target coding and empty params. "
-               "Only the fixed coding workspace is supported: VS Code and Brave. "
-               "Do not supply app lists, discover running apps, or emit additional open actions for workspace requests. "
+               "Use restore_workspace or delete_workspace with the saved name as target and empty params. "
+               "List my workspaces uses list_workspaces, target workspaces, empty params. "
+               "Create workspace uses create_workspace, target name, params apps and urls as arrays of strings. "
+               "Apps use configured keys (VS Code=vscode); browsers brave and safari are supported. "
+               f"Workspace URLs must be configured site home URLs or these exact destinations: {WORKSPACE_URLS}. "
+               "YouTube Music means the youtube_music URL, not an application. "
+               "Add/remove an app uses update_workspace, target name, params operation=add/remove and app=configured key. "
+               "Workspace names: 1-32 lowercase letters/digits/underscores/hyphens starting with a letter. "
+               "Never invent apps or URLs, discover running apps, or emit extra open actions for workspace operations. "
                if "save_workspace" in allowed_actions() else "")
             + "Open accepts only url on browser targets, restricted to configured site home URLs. "
             "Do not supply browser, mode, or theme parameters. List targets are sites, apps, folders. "

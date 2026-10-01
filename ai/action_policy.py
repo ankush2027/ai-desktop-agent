@@ -2,9 +2,9 @@ import re
 from typing import Any, Dict, List
 from urllib.parse import urlsplit
 
-from config import APPS, BROWSERS, FOLDERS, SITE_ALIASES, SITES
+from config import APPS, BROWSERS, FOLDERS, SITE_ALIASES, SITES, WORKSPACE_URLS
 from ai.errors import AIPlanningError
-from ai.plan_schema import ALLOWED_ACTIONS, validate_plan
+from ai.plan_schema import ALLOWED_ACTIONS, WORKSPACE_ACTIONS, validate_plan
 from actions.email import compose_url
 from actions.local_paths import resolve_local_target
 from actions.platforms import get_platform
@@ -42,7 +42,12 @@ class ActionPolicy:
                 raise ValueError
             # URLs are only navigation to configured home destinations. Workflow
             # queries/content must go through search or draft_email instead.
-            for configured in SITES.values():
+            configured_urls = list(SITES.values())
+            # Only the trusted Mac workspace catalog extends configured URLs.
+            # Windows retains precisely its existing destinations.
+            if ActionPolicy._platform().name == "Darwin":
+                configured_urls.extend(WORKSPACE_URLS.values())
+            for configured in configured_urls:
                 site = urlsplit(configured)
                 if (parsed.scheme, parsed.netloc.lower(), parsed.path.rstrip("/")) == (
                     site.scheme, site.netloc.lower(), site.path.rstrip("/"),
@@ -52,6 +57,37 @@ class ActionPolicy:
             pass
         raise ActionPolicyError("AI open URL must be a configured site home destination.")
 
+    def _workspace_action(self, item):
+        from actions.workspace_definition import (workspace_name, workspace_app, validate_workspace,
+                                                  workspace_open_actions)
+
+        if self._platform().name != "Darwin":
+            raise ActionPolicyError("Workspaces are supported only on macOS.")
+        action, target, params = item["action"], item["target"], item["params"]
+        try:
+            if action == "list_workspaces":
+                if target.lower() != "workspaces" or params:
+                    raise ValueError("List workspaces requires target workspaces and no parameters.")
+                item["target"] = "workspaces"
+                return
+            name = workspace_name(target)
+            if action == "create_workspace":
+                if set(params) != {"apps", "urls"}:
+                    raise ValueError("Create workspace requires apps and urls lists only.")
+                definition = validate_workspace({"name": name, **params})
+                # Validate the exact future open actions now and again on restore.
+                self.validate(workspace_open_actions(definition))
+                item["params"] = {"apps": definition["apps"], "urls": definition["urls"]}
+            elif action == "update_workspace":
+                if set(params) != {"operation", "app"} or params["operation"] not in {"add", "remove"}:
+                    raise ValueError("Update workspace accepts operation add/remove and one app only.")
+                item["params"]["app"] = workspace_app(params["app"])
+            elif params or (action == "save_workspace" and name != "coding"):
+                raise ValueError("Workspace operation or parameters are not supported.")
+            item["target"] = name
+        except (ValueError, RuntimeError) as exc:
+            raise ActionPolicyError(str(exc)) from None
+
     def validate(self, actions: List[Dict[str, Any]], *, preferred_browser=None) -> List[Dict[str, Any]]:
         try:
             validated = validate_plan({"actions": actions})["actions"]
@@ -60,6 +96,9 @@ class ActionPolicy:
         preferred = preferred_browser or BROWSERS["preferred"]
         for item in validated:
             action, target, params = item["action"], item["target"], item["params"]
+            if action in WORKSPACE_ACTIONS:
+                self._workspace_action(item)
+                continue
             if action == "draft_email":
                 try:
                     compose_url(target, params)
@@ -69,16 +108,10 @@ class ActionPolicy:
                 continue
             if self._UNSAFE_TARGET.search(target) or any(self._UNSAFE_TARGET.search(value) for value in params.values()):
                 raise ActionPolicyError("AI action contains unsafe characters.")
-            allowed = {"save_workspace": set(), "restore_workspace": set(), "close": set(), "open": {"url"}, "search": {"engine", "query"}, "list": set(), "help": set()}[action]
+            allowed = {"close": set(), "open": {"url"}, "search": {"engine", "query"}, "list": set(), "help": set()}[action]
             if set(params) - allowed:
                 raise ActionPolicyError("AI action contains unsupported parameters.")
-            if action in {"save_workspace", "restore_workspace"}:
-                if self._platform().name != "Darwin":
-                    raise ActionPolicyError("Workspaces are supported only on macOS.")
-                if target.lower() != "coding":
-                    raise ActionPolicyError("Only the coding workspace is supported.")
-                item["target"] = "coding"
-            elif action == "close":
+            if action == "close":
                 adapter = self._platform()
                 if adapter.name != "Darwin":
                     raise ActionPolicyError("Application closing is supported only on macOS.")

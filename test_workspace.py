@@ -91,8 +91,12 @@ def test_natural_language_uses_existing_route_planner_policy_executor(verb, comm
 @pytest.mark.parametrize("verb", ["save_workspace", "restore_workspace"])
 @pytest.mark.parametrize("target", ["other", "", "../coding", "/tmp/coding", "coding; whoami", "123"])
 def test_policy_and_direct_handlers_reject_unknown_names(verb, target, mac_desktop):
-    with pytest.raises(ActionPolicyError):
-        ActionPolicy().validate([action(verb, target)])
+    if verb == "restore_workspace" and target == "other":
+        # Named workspaces are now supported; absence is checked when loaded.
+        assert ActionPolicy().validate([action(verb, target)]) == [action(verb, target)]
+    else:
+        with pytest.raises(ActionPolicyError):
+            ActionPolicy().validate([action(verb, target)])
     handler = save_workspace if verb == "save_workspace" else restore_workspace
     with pytest.raises(ActionPolicyError):
         handler(target)

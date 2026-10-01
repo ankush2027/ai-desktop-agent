@@ -1,45 +1,29 @@
-"""One fixed macOS workspace; no process discovery or custom launch arguments."""
+"""Mac workspace management; all launches are ordinary policy-checked actions."""
 
 import json
 
 from ai.action_policy import ActionPolicy, ActionPolicyError
+from actions.workspace_definition import (CODING_APPS, workspace_name, validate_workspace,
+                                          workspace_open_actions as _open_actions)
 from memory import MemoryManager
-
-CODING_APPS = ("vscode", "brave")
 
 
 def _workspace_request(action, target, params):
     return ActionPolicy().validate([{
         "action": action, "target": target, "params": {} if params is None else params,
-    }])[0]["target"]
+    }])[0]
 
 
 def workspace_open_actions(definition):
-    # Stored data is untrusted. Never let a path/site/extra parameter become an
-    # open target, even though normal open actions support some local documents.
-    if (not isinstance(definition, dict) or set(definition) != {"name", "apps"}
-            or definition["name"] != "coding" or not isinstance(definition["apps"], list)):
-        raise ActionPolicyError("Stored workspace is invalid.")
-    if definition["apps"] != list(CODING_APPS):
-        raise ActionPolicyError("Workspace applications do not match the supported coding definition.")
-    return [{"action": "open", "target": app, "params": {}} for app in definition["apps"]]
+    try:
+        return _open_actions(definition)
+    except (ValueError, RuntimeError) as exc:
+        raise ActionPolicyError(str(exc)) from None
 
 
-def save_workspace(target="", params=None):
-    name = _workspace_request("save_workspace", target, params)
-    definition = {"name": name, "apps": list(CODING_APPS)}
-    ActionPolicy().validate(workspace_open_actions(definition))
-    with MemoryManager() as manager:
-        manager.save_workspace(name, json.dumps(definition))
-    print("Saved coding workspace: VS Code and Brave.")
-
-
-def load_workspace(target="coding"):
-    name = _workspace_request("restore_workspace", target, {})
-    with MemoryManager() as manager:
-        saved = manager.load_workspace(name)
+def _decode_workspace(saved, name):
     if saved is None:
-        raise ActionPolicyError("Coding workspace has not been saved yet.")
+        raise ActionPolicyError("Workspace has not been saved yet.")
 
     def unique_object(pairs):
         result = {}
@@ -52,20 +36,93 @@ def load_workspace(target="coding"):
     try:
         if not isinstance(saved, str) or len(saved) > 4096:
             raise ValueError
-        definition = json.loads(saved, object_pairs_hook=unique_object)
-    except (ValueError, TypeError, RecursionError):
+        definition = validate_workspace(json.loads(saved, object_pairs_hook=unique_object))
+        if definition["name"] != name:
+            raise ValueError
+    except (ValueError, RuntimeError, TypeError, RecursionError):
         raise ActionPolicyError("Stored workspace is invalid.") from None
-    workspace_open_actions(definition)
     return definition
 
 
+def _save_validated(manager, definition):
+    ActionPolicy().validate(workspace_open_actions(definition))
+    encoded = json.dumps(definition)
+    if len(encoded) > 4096:
+        raise ActionPolicyError("Workspace definition is too large.")
+    manager.save_workspace(definition["name"], encoded)
+
+
+def save_workspace(target="", params=None):
+    name = _workspace_request("save_workspace", target, params)["target"]
+    definition = {"name": name, "apps": list(CODING_APPS)}
+    # Keep the original coding shortcut and its exact legacy data shape.
+    ActionPolicy().validate(workspace_open_actions(definition))
+    with MemoryManager() as manager:
+        manager.save_workspace(name, json.dumps(definition))
+    print("Saved coding workspace: VS Code and Brave.")
+
+
+def load_workspace(target="coding"):
+    name = _workspace_request("restore_workspace", target, {})["target"]
+    with MemoryManager() as manager:
+        return _decode_workspace(manager.load_workspace(name), name)
+
+
 def restore_workspace(target="", params=None):
-    name = _workspace_request("restore_workspace", target, params)
+    name = _workspace_request("restore_workspace", target, params)["target"]
     actions = ActionPolicy().validate(workspace_open_actions(load_workspace(name)))
-    # Use the normal task runner and executor after validating the entire list.
-    # Local imports avoid an executor/handler import cycle.
     from ai.task_execution import execute_task
     from executor import execute
 
     execute_task(actions, execute)
-    print("Coding workspace launch requests completed; application readiness is not verified.")
+    print(f"Workspace {name} launch requests completed; application readiness is not verified.")
+
+
+def list_workspaces(target="workspaces", params=None):
+    _workspace_request("list_workspaces", target, params)
+    with MemoryManager() as manager:
+        names = manager.list_workspaces()
+    try:
+        if any(workspace_name(name) != name for name in names):
+            raise ValueError
+    except ValueError:
+        raise ActionPolicyError("Stored workspace name is invalid.") from None
+    print("Saved workspaces: " + (", ".join(names) if names else "none"))
+    return names
+
+
+def create_workspace(target="", params=None):
+    item = _workspace_request("create_workspace", target, params)
+    definition = {"name": item["target"], **item["params"]}
+    with MemoryManager() as manager, manager.workspace_transaction():
+        if manager.load_workspace(item["target"]) is not None:
+            raise ActionPolicyError("Workspace already exists; use update_workspace.")
+        _save_validated(manager, definition)
+    print(f"Created workspace {item['target']}.")
+
+
+def update_workspace(target="", params=None):
+    item = _workspace_request("update_workspace", target, params)
+    name, app = item["target"], item["params"]["app"]
+    with MemoryManager() as manager, manager.workspace_transaction():
+        definition = _decode_workspace(manager.load_workspace(name), name)
+        definition.setdefault("urls", [])
+        apps = definition["apps"]
+        if item["params"]["operation"] == "add":
+            if app in apps:
+                raise ActionPolicyError("Application is already in the workspace.")
+            apps.append(app)
+        else:
+            if app not in apps:
+                raise ActionPolicyError("Application is not in the workspace.")
+            apps.remove(app)
+        _save_validated(manager, definition)
+    print(f"Updated workspace {name}.")
+
+
+def delete_workspace(target="", params=None):
+    name = _workspace_request("delete_workspace", target, params)["target"]
+    with MemoryManager() as manager:
+        if not manager.delete_workspace(name):
+            raise ActionPolicyError("Workspace has not been saved yet.")
+    print(f"Deleted saved workspace {name}.")

@@ -326,3 +326,12 @@ class MemoryManager:
 
     def load_workspace(self, name):
         return self.store.load_workspace(name)
+
+    def workspace_transaction(self):
+        return self.store.transaction()
+
+    def list_workspaces(self):
+        return self.store.list_workspaces()
+
+    def delete_workspace(self, name):
+        return self.store.delete_workspace(name)

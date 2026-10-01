@@ -5,12 +5,14 @@ import platform
 from ai.errors import AIPlanningError
 
 ALLOWED_ACTIONS = {"open", "search", "list", "help", "draft_email"}
+WORKSPACE_ACTIONS = {"save_workspace", "restore_workspace", "list_workspaces",
+                     "create_workspace", "update_workspace", "delete_workspace"}
 MAX_ACTIONS = 10
 MAX_RESPONSE_CHARS = 32768
 
 
 def allowed_actions():
-    return ALLOWED_ACTIONS | ({"close", "save_workspace", "restore_workspace"} if platform.system() == "Darwin" else set())
+    return ALLOWED_ACTIONS | ({"close"} | WORKSPACE_ACTIONS if platform.system() == "Darwin" else set())
 
 
 def validate_plan(payload):
@@ -32,12 +34,23 @@ def validate_plan(payload):
             reject()
         if not isinstance(target, str) or not target.strip() or not isinstance(params, dict):
             reject()
-        # Every currently supported parameter is plain text. This also rejects
-        # deep or cyclic injected structures before any recursive processing.
-        if any(not isinstance(key, str) or not isinstance(value, str) for key, value in params.items()):
-            reject()
-        total += len(action) + len(target) + sum(len(key) + len(value) for key, value in params.items())
+        copied_params = {}
+        for key, value in params.items():
+            if not isinstance(key, str):
+                reject()
+            if action == "create_workspace" and key in {"apps", "urls"}:
+                if (not isinstance(value, list) or len(value) > MAX_ACTIONS
+                        or any(not isinstance(entry, str) for entry in value)):
+                    reject()
+                copied_params[key] = list(value)
+                total += len(key) + sum(len(entry) for entry in value)
+            else:
+                if not isinstance(value, str):
+                    reject()
+                copied_params[key] = value
+                total += len(key) + len(value)
+        total += len(action) + len(target)
         if total > MAX_RESPONSE_CHARS:
             reject()
-        normalized.append({"action": action, "target": target, "params": dict(params)})
+        normalized.append({"action": action, "target": target, "params": copied_params})
     return {"actions": normalized}
