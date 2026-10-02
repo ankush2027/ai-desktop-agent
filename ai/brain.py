@@ -6,7 +6,7 @@ from ai.provider import LLMProvider
 from ai.provider_manager import ProviderManager
 from ai.errors import AIPlanningError
 from ai.plan_schema import ALLOWED_ACTIONS, MAX_ACTIONS, MAX_RESPONSE_CHARS, allowed_actions, validate_plan
-from config import APPS, SITES, SITE_ALIASES, WORKSPACE_URLS
+from config import APPS, SITES, SITE_ALIASES, WORKSPACE_URLS, WORKSPACE_FOLDERS
 
 
 class AIBrain:
@@ -78,6 +78,9 @@ class AIBrain:
                f"Workspace URLs must be configured site home URLs or these exact destinations: {WORKSPACE_URLS}. "
                "YouTube Music means the youtube_music URL, not an application. "
                "Add/remove an app uses update_workspace, target name, params operation=add/remove and app=configured key. "
+               f"Workspace folders use only these trusted aliases: {sorted(WORKSPACE_FOLDERS)}. "
+               "Create may also include folders as an array of aliases; never supply filesystem paths. "
+               "Add/remove a folder uses update_workspace with operation=add/remove and folder=alias, without app. "
                "Workspace names: 1-32 lowercase letters/digits/underscores/hyphens starting with a letter. "
                "Never invent apps or URLs, discover running apps, or emit extra open actions for workspace operations. "
                if "save_workspace" in allowed_actions() else "")
@@ -134,7 +137,13 @@ class AIBrain:
             raise AIPlanningError("AI returned an unusable response.") from None
 
     def validate_action_plan(self, payload: Any) -> Dict[str, Any]:
-        return validate_plan(payload)
+        plan = validate_plan(payload)
+        for item in plan["actions"]:
+            if item["action"] == "create_workspace":
+                # Normalize omitted optional URL content at the planner boundary;
+                # ActionPolicy still requires the complete workspace structure.
+                item["params"].setdefault("urls", [])
+        return plan
 
     def plan(self, command: str, context: Optional[Any] = None) -> Dict[str, Any]:
         if not isinstance(command, str) or not command.strip():

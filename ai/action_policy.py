@@ -59,7 +59,7 @@ class ActionPolicy:
 
     def _workspace_action(self, item):
         from actions.workspace_definition import (workspace_name, workspace_app, validate_workspace,
-                                                  workspace_open_actions)
+                                                  workspace_open_actions, workspace_folder, resolve_workspace_folder)
 
         if self._platform().name != "Darwin":
             raise ActionPolicyError("Workspaces are supported only on macOS.")
@@ -72,16 +72,22 @@ class ActionPolicy:
                 return
             name = workspace_name(target)
             if action == "create_workspace":
-                if set(params) != {"apps", "urls"}:
-                    raise ValueError("Create workspace requires apps and urls lists only.")
+                if set(params) not in ({"apps", "urls"}, {"apps", "urls", "folders"}):
+                    raise ValueError("Create workspace requires apps and urls lists, with optional folders aliases.")
                 definition = validate_workspace({"name": name, **params})
                 # Validate the exact future open actions now and again on restore.
                 self.validate(workspace_open_actions(definition))
-                item["params"] = {"apps": definition["apps"], "urls": definition["urls"]}
+                item["params"] = {key: value for key, value in definition.items() if key != "name"}
             elif action == "update_workspace":
-                if set(params) != {"operation", "app"} or params["operation"] not in {"add", "remove"}:
-                    raise ValueError("Update workspace accepts operation add/remove and one app only.")
-                item["params"]["app"] = workspace_app(params["app"])
+                if (set(params) not in ({"operation", "app"}, {"operation", "folder"})
+                        or params["operation"] not in {"add", "remove"}):
+                    raise ValueError("Update workspace accepts operation add/remove and exactly one app or folder alias.")
+                if "app" in params:
+                    item["params"]["app"] = workspace_app(params["app"])
+                else:
+                    item["params"]["folder"] = workspace_folder(params["folder"])
+                    if params["operation"] == "add":
+                        resolve_workspace_folder(params["folder"])
             elif params or (action == "save_workspace" and name != "coding"):
                 raise ValueError("Workspace operation or parameters are not supported.")
             item["target"] = name

@@ -38,7 +38,7 @@ def validate_plan(payload):
         for key, value in params.items():
             if not isinstance(key, str):
                 reject()
-            if action == "create_workspace" and key in {"apps", "urls"}:
+            if action == "create_workspace" and key in {"apps", "urls", "folders"}:
                 if (not isinstance(value, list) or len(value) > MAX_ACTIONS
                         or any(not isinstance(entry, str) for entry in value)):
                     reject()

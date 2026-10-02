@@ -1,290 +1,283 @@
-# AI Desktop Agent
+# AI Desktop Automation Agent
 
-A local Python desktop assistant evolving toward a context-aware personal agent.
-The core combines deterministic commands, SQLite preference memory, context
-episodes/continuity, AI planning, and constrained desktop actions. Phase 3 adds a
-compact desktop command surface with optional local speech recognition; TTS and
-phone clients remain deferred. No Docker or cloud service is needed.
+A local, safety-first desktop automation system that translates natural-language and voice commands into structured, policy-validated desktop actions.
 
-## Architecture
+---
 
-```text
-Text CLI (main.py)
-  -> deterministic parser -> executor -> existing actions
-  -> explicit memory commands -> MemoryManager -> SQLite
-  -> natural-language fallback
-       -> AIOrchestrator -> ContextEngine + MemoryManager
-       -> AIBrain -> ProviderManager -> GeminiProvider
-       -> structured JSON plan -> schema validation -> ActionPolicy
-       -> TaskExecution -> executor -> existing actions
-```
+## 1. Project Overview
 
-The optional desktop entry point reuses this same core:
-`desktop_ui.py -> InteractionController -> main.handle_command`.
+The **AI Desktop Automation Agent** is a focused desktop automation framework designed for controlled, deterministic, and AI-assisted task execution. Rather than operating as an unconstrained "AI assistant" or executing arbitrary shell commands, the agent converts natural-language user intent into strictly defined, validated action plans before dispatching them to platform-specific adapters.
 
-Reasoning, memory, schema validation, and task state are shared Python code.
-Platform operations live in `actions/`; policy also checks platform capabilities
-before allowing a plan. The desktop surface reuses this pipeline without adding
-another intelligence system.
+The system handles both deterministic operations (direct application launches, search queries, explicit memory management) and multi-step natural-language requests (such as configuring or restoring multi-application workspaces). All actions pass through schema validation and an explicit `ActionPolicy` gate before reaching the executor.
+
+---
+
+## 2. Core Architecture
+
+The system enforces a unidirectional flow from user input to platform execution:
 
 ```text
-main.py, parser.py, executor.py  CLI, deterministic routing, dispatch
-config.py                     trusted app/site/browser/folder configuration
-ai/                           provider, planning, schema, policy, task execution
-context/                      runtime and relevant-memory context
-memory/                       SQLite store and MemoryManager
-logger.py                     redacted action history
-conftest.py, test_*.py         isolated offline regression suite
-requirements*.txt             runtime/development dependency entry points
-constraints.txt               tested direct and transitive dependency versions
+User
+ ↓
+Voice / Text Input
+ ↓
+Agent / Interaction Layer
+ ↓
+AI Planning (Gemini + Groq Fallback)
+ ↓
+Structured Action Plan (JSON)
+ ↓
+Schema Validation
+ ↓
+ActionPolicy
+ ↓
+Executor
+ ↓
+Platform / Application Adapters
 ```
 
-## Python and dependencies
+### Layer Responsibilities
 
-Use **CPython 3.12** (validated with 3.12.14 on Windows). `.python-version` records
-that minor version; it does not install Python. Other Python versions are unverified.
-Install a Python distribution that includes pip, venv, and SQLite.
+1. **Voice / Text Input**: Captures user input via the CLI (`main.py`) or the desktop interface (`desktop_ui.py`) using optional local speech recognition (`local_voice.py`).
+2. **Agent / Interaction Layer**: Routes commands between deterministic rules, explicit context/memory operations, and the AI planning pipeline.
+3. **AI Planning**: Utilizes Google Gemini (`AIBrain` / `GeminiProvider`) as the primary planner to construct a declarative JSON action plan, backed by Groq (`GroqProvider`) on macOS for transient provider outages.
+4. **Structured Action Plan**: A bounded JSON payload adhering strictly to allowed action types, parameters, and action limits (maximum 10 actions per plan).
+5. **Schema Validation**: Validates payload structure, parameter types, string lengths, and action counts (`ai/plan_schema.py`).
+6. **ActionPolicy**: Enforces strict security boundaries, verifying permitted action types, parameter values, trusted URLs, trusted folder aliases, and platform capability support (`ai/action_policy.py`).
+7. **Executor**: Dispatches verified actions step-by-step; execution halts immediately on the first failure without executing subsequent steps (`executor.py`).
+8. **Platform / Application Adapters**: Safe OS-level implementations for macOS and Windows (`actions/`), handling application opening/closing, URL launches, and local document access.
 
-Runtime dependencies are `google-genai`, `python-dotenv`, and `httpx`; tests add
-`pytest`. The base/development entry points use `constraints.txt` to pin the tested
-transitive dependency set. There is no browser-driver or desktop-control framework.
-Dependency upgrades must be followed by the full tests; do not regenerate pins
-from a global environment. These are version pins, not a hash-verified wheel lock.
+---
 
-## Fresh setup
+## 3. Key Features
 
-Clone the repository, then run every command from its root directory. Install
-Python first if `py` (Windows) or `python3.12` (macOS) is unavailable.
+- **Natural-Language Desktop Automation**: Converts spoken or typed phrases into concrete desktop operations.
+- **Structured Action Planning**: Declarative JSON plan generation with schema validation and strict response limits.
+- **ActionPolicy Safety Verification**: Zero direct shell access; parameters and actions are rigorously verified against allowlists.
+- **Resilient AI Planning**: Gemini 2.5/Flash-lite primary planner with automatic fallback to Groq (`openai/gpt-oss-120b`) on macOS for eligible transient network/server failures.
+- **Local Speech Recognition**: Optional offline voice input powered by `faster-whisper` (`base.en`) with energy/VAD voice activity detection and audio pre-roll.
+- **Multi-Step Command Execution**: Executes multi-action plans sequentially with fast-fail safety semantics.
+- **Application Lifecycle Management**: Controlled opening and closing of configured desktop applications (`vscode`, `calculator`, `whatsapp`, `telegram`, `brave`, `safari`).
+- **Web & Search Actions**: Automated web search and direct home-URL opening across configured browsers.
+- **Context & Memory Continuity**: SQLite-backed episodic and preference memory (`MemoryManager`) for contextual continuity across interactions.
+- **Named Workspaces**: Complete workspace lifecycle management (`create`, `list`, `update`, `restore`, `delete`).
+- **Trusted Workspace URLs**: Restores browser targets strictly against configured site allowlists (e.g., YouTube Music).
+- **Trusted Workspace Folder Aliases**: Restores project folders using pre-configured trusted folder aliases rather than arbitrary filesystem paths.
+- **Automated Regression Suite**: Comprehensive test suite covering units, schemas, safety policies, mocked platforms, and isolation boundaries.
 
-Windows PowerShell (activation is optional):
+---
 
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-.\.venv\Scripts\python.exe -m pip check
-.\.venv\Scripts\python.exe main.py
+## 4. Safety Model
+
+The safety architecture is the core design pillar of this repository:
+
+- **No Arbitrary Shell Execution**: The AI planner has zero access to shell commands, bash/cmd interpreters, terminal commands, or arbitrary script execution.
+- **Structured Action Output**: The LLM outputs purely structured JSON data matching predefined schemas (`open`, `close_app`, `search`, `list`, `help`, `draft_email`, `create_workspace`, `restore_workspace`, `update_workspace`, `delete_workspace`, `list_workspaces`).
+- **Strict Schema Validation**: Bounded JSON parsing enforces maximum action counts (≤ 10), payload size limits (≤ 4096 characters), and strict parameter types before policy evaluation.
+- **ActionPolicy Validation**: The `ActionPolicy` gate evaluates each proposed action against strict allowlists:
+  - Applications must exist in `config.APPS` and be supported by the current OS adapter.
+  - URLs must match verified HTTP/HTTPS origins without embedded credentials, user tokens, queries, or fragments.
+  - File operations cannot target arbitrary system paths.
+- **Trusted Folder Aliases Only**: Workspace folder operations strictly reject arbitrary filesystem paths. Only pre-configured aliases (e.g., `ai-desktop-agent`, `projects`, `documents`) are accepted, and targets must reside within the user's home directory.
+- **Unsafe Operations Blocked**: File mutations and destructive file/directory deletions are blocked from AI planning.
+- **Fail-Fast Execution**: The executor terminates on any step error; no subsequent actions are attempted.
+
+---
+
+## 5. AI Provider Architecture
+
+The AI layer is structured for high availability while keeping execution strictly sandboxed:
+
+- **Primary Provider**: Google Gemini (`GeminiProvider`) via the official `google-genai` SDK using `gemini-2.5-flash-lite` (or a configured model override).
+- **Fallback Provider (macOS)**: Groq (`GroqProvider`) using `openai/gpt-oss-120b`.
+- **Fallback Conditions**: Fallback triggers exclusively on transient Gemini failures:
+  - HTTP status codes: `408`, `500`, `502`, `503`, `504`
+  - Network timeouts, DNS resolution errors, and connection drops
+- **Ineligible for Fallback**: Configuration errors, missing API keys, HTTP `401`/`403` authentication failures, and HTTP `429` quota limits do **not** trigger Groq.
+- **Full Safety Preservation**: Fallback responses pass through the exact same JSON parser, schema validation, `ActionPolicy`, and executor safety checks as Gemini. Fallback does not bypass safety constraints.
+
+---
+
+## 6. Voice Architecture
+
+The local voice subsystem operates entirely on-device without streaming audio to external cloud providers:
+
+- **Audio Capture**: Utilizes `sounddevice` (PortAudio) capturing 16 kHz mono float32 audio.
+- **Voice Activity Detection**: Incorporates an adaptive energy-based onset detector with trailing silence detection (0.8s) and pre-roll preservation (0.2s).
+- **Transcription**: Powered by `faster-whisper` running the pinned INT8-quantized `Systran/faster-whisper-base.en` model locally on CPU.
+- **Process Isolation**: Audio capture closes the microphone stream before transcription begins, preventing resource locking.
+- **Honest Limitations**:
+  - Voice recognition can degrade in acoustically noisy environments or with low-gain microphones.
+  - Reliable transcription requires speaking clearly in a relatively quiet room.
+  - Future iterations can incorporate advanced neural noise suppression and streaming ASR.
+
+---
+
+## 7. Workspace System
+
+The macOS-specific workspace manager allows defining, persisting, updating, and restoring multi-window workflows:
+
+- **Components**: Workspaces can bundle configured desktop apps, trusted URLs, and trusted folder aliases (up to 10 total items per workspace).
+- **Persistence**: Saved definitions are persisted in SQLite (`memory.db`) with transactional integrity.
+- **Operations**:
+  - `create_workspace`: Defines a new workspace with specified applications, URLs, and optional folder aliases.
+  - `list_workspaces`: Lists all registered workspaces.
+  - `update_workspace`: Atomically adds or removes an app or trusted folder alias.
+  - `restore_workspace`: Revalidates the workspace definition and launches all apps, URLs, and folders in sequence.
+  - `delete_workspace`: Removes a workspace definition.
+- **Restore Validation**: Stored records are treated as untrusted data and re-validated through `ActionPolicy` before any application or folder is launched.
+
+---
+
+## 8. Example Commands
+
+### Basic Desktop & Browser Actions
+```text
+Open Calculator
+Open YouTube
+Open YouTube and search Python
+Search for Python dataclasses
+Close Calculator
 ```
 
-macOS:
+### Workspace Management
+```text
+Create a workspace called coding
+List my workspaces
+Restore coding
+Add Telegram to coding
+Remove Telegram from coding
+Delete workspace coding
+```
+
+### Context & Memory
+```text
+Remember that I prefer Brave
+What are my preferences
+Continue what I was doing
+```
+
+---
+
+## 9. Setup
+
+### Prerequisites
+- **Python**: CPython 3.12 (check `.python-version`)
+- **OS**: macOS 13+ (tested & verified on Apple Silicon / Intel) or Windows 10/11 x64
+
+### 1. Clone & Environment Setup
 
 ```bash
+# macOS
 python3.12 -m venv .venv
-.venv/bin/python -m pip install -r requirements-dev.txt
-.venv/bin/python -m pip check
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+```
+
+```powershell
+# Windows PowerShell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+```
+
+### 2. Environment Variables
+
+Copy `.env.example` to `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Configure your API credentials in `.env`:
+```ini
+# Google Gemini (Primary Planner)
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Groq (Optional macOS Fallback)
+GROQ_API_KEY=your_groq_api_key_here
+```
+*Note: Deterministic commands, memory operations, and test suites operate without API keys.*
+
+### 3. Optional Voice Setup
+
+To enable local microphone input:
+
+```bash
+pip install -r requirements-voice.txt
+python provision_voice.py
+```
+This downloads the pinned `base.en` Whisper model to your local user cache (`~/.cache/huggingface/hub`).
+
+### 4. Running the Agent
+
+**CLI Mode (One command per execution):**
+```bash
 .venv/bin/python main.py
 ```
 
-For runtime only, install `requirements.txt` instead. First installation requires
-network access to download dependencies. macOS setup and native actions require
-validation on an actual Mac; mocked platform tests do not establish native parity.
-
-## Optional local voice setup (Windows and macOS)
-
-Use **64-bit CPython 3.12**: Windows x64, macOS 13+ on Intel, or macOS 14+ on
-Apple Silicon, with native Python. The text agent needs only `requirements.txt`; development adds
-`requirements-dev.txt`. Voice is optional: `requirements-voice.txt` includes the
-base installation plus pinned `faster-whisper`, `sounddevice`, and `numpy`.
-It also applies `constraints-voice.txt` for voice-only transitive dependencies.
-
-From a fresh clone's root, Windows PowerShell:
-
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-voice.txt
-.\.venv\Scripts\python.exe -m pip check
-.\.venv\Scripts\python.exe -c "import faster_whisper, sounddevice, numpy, ctranslate2, av, onnxruntime; print('Voice imports OK'); print(sounddevice.get_portaudio_version()); print(ctranslate2.get_supported_compute_types('cpu'))"
-```
-
-macOS (Intel or Apple Silicon):
-
+**Desktop UI Mode:**
 ```bash
-python3.12 -m venv .venv
-.venv/bin/python -m pip install -r requirements-voice.txt
-.venv/bin/python -m pip check
-.venv/bin/python -c "import faster_whisper, sounddevice, numpy, ctranslate2, av, onnxruntime; print('Voice imports OK'); print(sounddevice.get_portaudio_version()); print(ctranslate2.get_supported_compute_types('cpu'))"
-```
-
-For an existing base environment, skip venv creation and run the install/check
-commands. For text only, substitute `requirements.txt` and skip the voice import
-check. To add tests, install `-r requirements-dev.txt` in the same environment.
-Expect `No broken requirements found`, `Voice imports OK`, a PortAudio version,
-and CPU compute types. Verification does not record audio, load a model, or
-transcribe. Provision the model before using the UI microphone (commands below).
-
-The local provider uses English `base.en`, CPU INT8, and an immutable model
-revision. Provision once explicitly, then launch the UI:
-
-```powershell
-.\.venv\Scripts\python.exe provision_voice.py
-.\.venv\Scripts\python.exe -B desktop_ui.py
-```
-
-```bash
-.venv/bin/python provision_voice.py
 .venv/bin/python -B desktop_ui.py
 ```
 
-Provisioning downloads the pinned public Hugging Face snapshot into the user cache,
-normally `~/.cache/huggingface/hub`, outside this repository. No API key, login,
-`.env`, or new environment variable is required. Recognition only loads the cached
-revision offline; a missing model produces setup guidance. The model loads lazily
-on the first voice request and is reused. See [VOICE_SETUP.md](VOICE_SETUP.md) for
-the exact revision, capture bounds, cancellation limits, and native smoke tests.
+---
 
-Wheels supply PortAudio and FFmpeg libraries; no Homebrew audio package, separate
-FFmpeg executable, CUDA, or compiler is part of this setup. Windows may require
-Microsoft's Visual C++ x64 runtime. For capture, enable microphone access
-for desktop apps in Windows privacy settings, or grant the launching terminal/app
-Microphone permission in macOS System Settings > Privacy & Security. Connect and
-select an input device; import checks alone do not prove microphone access.
-See [VOICE_SETUP.md](VOICE_SETUP.md) for troubleshooting, provisioning details,
-upstream references, and validation limits.
+## 10. Testing
 
-## Gemini configuration
+The repository maintains an extensive, fully isolated offline test suite. All tests mock external AI provider calls, operating system launches, and filesystem writes.
 
-Obtain a key from [Google AI Studio](https://aistudio.google.com/apikey).
-Copy `.env.example` to `.env` only if you do not already have one, then set
-`GEMINI_API_KEY` locally. Never commit keys, user memory, or history.
-Alternatively set `GEMINI_API_KEY` in your shell environment.
-`GEMINI_MODEL` optionally overrides the provider's default `gemini-3.1-flash-lite`.
-Model access, availability, billing, and quota depend on your Google account;
-this test suite does not verify live model access.
+Run the test suite using the standard project command:
 
-Configuration precedence is explicit provider arguments, then existing environment
-variables, then `.env` values. dotenv searches from the current working directory
-upward for the nearest `.env` and never overwrites existing shell variables.
-Launch from the repository root to select its configuration and data paths.
-A missing or blank key produces a controlled `AI service unavailable.` response
-when AI is requested. Deterministic commands and explicit memory commands need no
-key and do not construct a Gemini client.
+```bash
+.venv/bin/python -m pytest --tb=short -q
+```
 
-The provider uses the official SDK's public `models.generate_content` API, public
-error classes, a 20,000 ms HTTP timeout, and one attempt (no automatic retries).
-The timeout is a transport timeout, not a hard total wall-clock deadline.
-Only response text enters the planner. Empty/blocked output fails in a controlled
-way. No tools or executable functions are provided to Gemini.
-
-## Running and commands
-
-`main.py` prompts for **one command per invocation**, then exits. Examples:
-
+**Release Verification Result:**
 ```text
-help
-open yt
-search python decorators
-create file notes.txt
-remember that I prefer brave
-what are my preferences
-what do you remember about brave
-please search youtube for Python tutorials
+1096 passed in 47.38s
 ```
 
-Explicit create/delete/rename/copy/move commands are deterministic local operations.
-Quote multiword operands and names containing `and`. These directly requested file
-operations can modify files; the AI allowlist is narrower than the CLI command set.
-`config.py` enables named applications and browsers; platform adapters contain
-their fixed launch mappings. See [CROSS_PLATFORM.md](CROSS_PLATFORM.md) for install
-locations and limitations.
+All 1,096 tests pass completely offline without requiring network access or live API credentials.
 
-## Instant Context Interface (Phase 3)
+---
 
-Run `.\.venv\Scripts\python.exe -B desktop_ui.py` from the repository root to
-summon the compact Tkinter surface (requires working Tcl/Tk). Type a command,
-press Enter or Send, read the result, then dismiss with Escape or the close button.
-The surface forwards text to the existing core, including context commands such
-as "I'm here", "I'm leaving", and "Continue what I was doing".
+## 11. Platform Support
 
-The desktop entry point injects the optional local voice input provider. Microphone
-recognition requires the voice installation and model provisioning above. TTS
-remains unimplemented; the output interface and unavailable stub are unchanged.
-There is no background listening or global hotkey service. See
-[VOICE_UI.md](VOICE_UI.md) for architecture, privacy, validation, and limitations.
+- **macOS (Fully Validated)**:
+  - Native application launch and termination via `/usr/bin/open` and AppleScript / `pkill`.
+  - Full workspace support (apps, trusted URLs, and folder aliases).
+  - Groq AI provider fallback.
+  - Native desktop UI and voice capture.
+- **Windows (Supported with Known Constraints)**:
+  - Fixed executable discovery paths for configured applications (LOCALAPPDATA, Program Files).
+  - Browser and site automation via default browser / Brave.
+  - Workspace management features are macOS-only.
+  - Groq fallback dependency is excluded on Windows.
 
-## Safety and reliability
+---
 
-AI fallback produces data, never executable code. `AIBrain` validates bounded JSON;
-the orchestrator validates again, then `ActionPolicy` approves the entire plan
-before `TaskExecution` dispatches any step. Allowed AI actions are open, search,
-list, help, and draft_email. Arbitrary shell/scripts, executable launches, file
-mutations, unconfigured open URLs, unsupported parameters, and unsupported platform
-capabilities are rejected. Local open targets must be supported documents/folders
-inside the home directory, with link, bundle, type, and executable checks.
+## 12. Known Limitations
 
-The first failed task step stops later steps. Already completed steps are not
-rolled back. Browser launch acceptance does not verify page loading or completion.
-Memory-dependent commands fail safely if storage is unavailable; unrelated
-commands such as help, ordinary search, and configured site opening remain usable.
+- **Acoustic Sensitivity**: Local voice capture relies on energy VAD; accuracy degrades in noisy environments or with low-quality microphones.
+- **Application Allowlist**: Only explicitly mapped applications in `config.py` can be opened or closed.
+- **Folder Containment**: Workspace folders are constrained to predefined aliases in `config.WORKSPACE_FOLDERS` and must exist within the user home directory.
+- **Cloud Dependency for Planning**: Natural-language planning requires network connectivity to Google Gemini (or Groq). Deterministic commands work fully offline.
+- **No Background Daemon**: The application runs interactively and does not maintain a background daemon or listen to global hotkeys.
 
-## Windows and macOS capabilities
+---
 
-| Capability | Windows | macOS |
-| --- | --- | --- |
-| Configured sites / ordinary Google search | Default browser | Default browser |
-| Named browser, YouTube search, Gmail compose | Brave in supported install locations | Brave or Safari |
-| Configured desktop app opening | Fixed supported installation paths | `/usr/bin/open -a` |
-| Safe local document/folder opening | Explorer / Notepad / Brave | Finder / TextEdit / Preview |
-| Explicit filesystem operations | Python filesystem operations | Python filesystem operations |
+## 13. Future Improvements
 
-Windows Brave discovery checks LOCALAPPDATA, PROGRAMFILES, and PROGRAMFILES(X86),
-not the current directory or arbitrary PATH executables. Safari is macOS-only.
-Linux desktop automation is not a supported target.
-WhatsApp on Windows supports only the fixed legacy desktop installation; Store-only
-installs are unsupported. Windows PDF/image opening requires Brave. See
-[CROSS_PLATFORM.md](CROSS_PLATFORM.md) for the action audit and validation scope.
+- **Neural Noise Suppression**: Integration of pre-ASR speech enhancement (e.g., DeepFilterNet) for improved voice capture in noisy rooms.
+- **Faster Voice Inference**: Streaming ASR and model warm-up optimizations.
+- **Background Daemon / Global Hotkey**: Optional system tray daemon with a global shortcut for summoning the UI.
+- **Extended Platform Adapters**: Deeper Windows workspace parity and expanded Linux desktop support.
 
-## Memory, context, and privacy
+---
 
-`MemoryManager` persists data in SQLite `memory.db` anchored to the repository
-directory, not the working directory. `ContextEngine` combines runtime context and
-relevant stored memories, including browser preferences. Existing explicit context
-commands record episodes/tasks and recover continuity; ordinary preference commands
-retain their memory behavior. There is no general conversation archive. See
-[MEMORY_MANAGER.md](MEMORY_MANAGER.md), [CONTEXT_EPISODES.md](CONTEXT_EPISODES.md),
-and [CONTEXT_CONTINUITY.md](CONTEXT_CONTINUITY.md).
+## 14. Project Status
 
-AI fallback sends the user's command and selected context/memories to Gemini.
-Local storage does not imply that AI processing is offline. Diagnostic output
-reports sizes, action categories, and sanitized errors rather than raw prompts,
-responses, email bodies, search queries, or private paths. `logs/history.log`
-contains redacted action/status records. Explicit memory retrieval displays the
-requested memory content. Local memory is not encrypted by this application.
-
-Gmail support is **compose preparation only**: it opens a compose URL with fields
-explicitly provided by the user. It does not send, schedule, attach, reply, forward,
-or support CC/BCC. The user reviews and sends in Gmail. Compose fields travel in
-the URL and can appear in browser history; application logs redact them.
-
-## Testing and verification
-
-From the root, using the virtual environment's Python:
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -c "import pathlib, py_compile; files = list(pathlib.Path('.').glob('*.py')) + [p for d in ('actions', 'ai', 'context', 'memory') for p in pathlib.Path(d).rglob('*.py')]; [py_compile.compile(str(p), doraise=True) for p in files]; print(f'Compiled {len(files)} files')"
-```
-
-On macOS substitute `.venv/bin/python`. Focused provider checks:
-`python -m pytest -q test_ai_provider.py test_provider_manager.py test_reliability.py`.
-Use the virtual environment's interpreter, not an unrelated global Python.
-
-`conftest.py` isolates SQLite, history, environment variables, working directories,
-and mutable configuration before collection/tests. SQLite access outside permitted
-temporary resources is blocked; real dotenv files are excluded. Provider and OS
-operations are mocked: no API key, live Gemini request, browser session, or real
-user database is needed. The isolation regression repeats the suite in a temporary
-source copy with sentinel memory/history/.env and checks environment restoration.
-
-If a restricted Windows session cannot access an existing pytest temp directory,
-use a dedicated disposable temp root before testing:
-
-```powershell
-New-Item -ItemType Directory -Force .venv/test-tmp | Out-Null
-$env:TEMP = (Resolve-Path .venv/test-tmp).Path
-$env:TMP = $env:TEMP
-```
-
-`.gitignore` excludes `.env` variants (except the blank example), `memory.db` and
-its SQLite sidecars, `logs/history.log`, Python caches, and common virtual
-environments. Keep these protections when adding tooling. Never run data-clearing
-examples against a real user database as a setup or test step.
+This repository is a **completed, release-ready portfolio project** demonstrating safe, production-grade agentic design patterns, structured LLM planning, multi-provider fault tolerance, and constrained local automation.

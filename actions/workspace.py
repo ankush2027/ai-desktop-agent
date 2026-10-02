@@ -103,19 +103,21 @@ def create_workspace(target="", params=None):
 
 def update_workspace(target="", params=None):
     item = _workspace_request("update_workspace", target, params)
-    name, app = item["target"], item["params"]["app"]
+    name = item["target"]
+    kind = "folder" if "folder" in item["params"] else "app"
+    value = item["params"][kind]
     with MemoryManager() as manager, manager.workspace_transaction():
         definition = _decode_workspace(manager.load_workspace(name), name)
         definition.setdefault("urls", [])
-        apps = definition["apps"]
+        entries = definition.setdefault("folders", []) if kind == "folder" else definition["apps"]
         if item["params"]["operation"] == "add":
-            if app in apps:
-                raise ActionPolicyError("Application is already in the workspace.")
-            apps.append(app)
+            if value in entries:
+                raise ActionPolicyError("Workspace item is already present.")
+            entries.append(value)
         else:
-            if app not in apps:
-                raise ActionPolicyError("Application is not in the workspace.")
-            apps.remove(app)
+            if value not in entries:
+                raise ActionPolicyError("Workspace item is not present.")
+            entries.remove(value)
         _save_validated(manager, definition)
     print(f"Updated workspace {name}.")
 

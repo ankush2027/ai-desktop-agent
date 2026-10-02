@@ -67,3 +67,11 @@ ACTION_ALIASES = {
 
 # Trusted Mac workspace destinations. AI plans cannot extend this catalog.
 WORKSPACE_URLS = {"youtube_music": "https://music.youtube.com"}
+
+# Trusted workspace folder aliases, not planner-supplied paths. Folders must
+# already exist and pass the existing safe local-open policy; never create them.
+WORKSPACE_FOLDERS = {
+    "ai-desktop-agent": "~/Desktop/ai-desktop-agent",
+    "projects": "~/Desktop/Test",
+    "documents": FOLDERS["documents"],
+}
